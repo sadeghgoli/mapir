@@ -3,12 +3,13 @@
 import { Tooltip } from 'react-tooltip';
 import ProfileModal from './ProfileModal';
 import {useState} from "react";
+import Link from "next/link";
 
 export default function UserCard() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const userInfo = {
-        name: 'حسن رضایی مقدم',
-        phone: '09123456789'
+        name: 'ورود به حساب',
+        phone: '-'
     };
     return (
         <div
@@ -51,17 +52,18 @@ export default function UserCard() {
                     </div>
 
                     <div>
-                        <div className="font-bold text-sm">
-                            حسن رضایی مقدم
+                        <div className="text-sm">
+                            ورود به حساب
                         </div>
 
                         <div className="text-sm opacity-80">
-                            09123456789
+                            -
                         </div>
                     </div>
 
 
                 </div>
+                <Link href="https://sabzevar.ir">
 
                 <button
                     id="my-anchor-element"
@@ -78,6 +80,7 @@ export default function UserCard() {
                 >
                     <img src="/images/solar_round-arrow-left-bold-duotone.png" alt=""/>
                 </button>
+                </Link>
 
                 <Tooltip
                     anchorSelect="#my-anchor-element"

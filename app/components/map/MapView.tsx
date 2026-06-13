@@ -20,6 +20,7 @@ const CENTER: [number, number] = [36.21, 57.667];
 
 function MapComponent() {
     const [isMounted, setIsMounted] = useState(false);
+    const [isLoadingNosazi, setIsLoadingNosazi] = useState(false);
 
     useEffect(() => {
         setIsMounted(true);
@@ -33,15 +34,25 @@ function MapComponent() {
         <div className="relative w-full h-full">
             <MapContainer
                 center={CENTER}
-                zoom={14}
+                zoom={18}
                 zoomControl={false}
                 className="w-full h-full z-0"
                 style={{ background: '#f0f0f0' }}
             >
                 <BaseTileLayer />
-                <NosaziLayer />
+                <NosaziLayer onLoadingChange={setIsLoadingNosazi} />
                 <ZoomControls />
             </MapContainer>
+
+            {/* لودر سراسری روی نقشه */}
+            {isLoadingNosazi && (
+                <div className="absolute inset-0 flex items-center justify-center z-[2000] bg-black/20 backdrop-blur-sm pointer-events-none">
+                    <div className="bg-white rounded-lg shadow-xl p-4 flex items-center gap-3 pointer-events-auto" dir="rtl">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                        <span className="text-gray-700 font-medium">در حال بارگذاری داده‌های نوسازی...</span>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

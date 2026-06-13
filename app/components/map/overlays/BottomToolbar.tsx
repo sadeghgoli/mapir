@@ -33,24 +33,11 @@ export default function BottomToolbar() {
                     backgroundPosition: 'center'
                 }}
             >
-                <div className="flex flex-col gap-1 items-center mt-4">
-                    <img src="/images/fanavari.png" className="w-8" alt=""/>
-                    <p className="text-xs">
-                        سازمان فناوری
-                    </p>
-                </div>
 
-                <div className="flex flex-col gap-1 items-center mt-4">
-                    <img src="/images/etelaat.png" className="w-8" alt=""/>
-                    <p className="text-xs">
-                       اطلاعات
-                    </p>
-                </div>
-
-                <div className="flex flex-col gap-1 items-center mt-4">
+                <div className="flex gap-2 items-center mt-4">
                     <img src="/images/shahrdari.png" className="w-8" alt=""/>
-                    <p className="text-xs">
-                        شهرداری سبزوار
+                    <p className="text-sm">
+                      مدیریت فناوری اطلاعات شهرداری سبزوار
                     </p>
                 </div>
             </div>

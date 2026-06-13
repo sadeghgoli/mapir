@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMap, useMapEvents } from 'react-leaflet';
 import NosaziModal from '../overlays/NosaziModal';
-import 'leaflet/dist/leaflet.css'; // ✅ این خط را به بالای فایل اضافه کنید
+import 'leaflet/dist/leaflet.css';
 
 // هوک سفارشی برای مدیریت URL
 function useUrlParam(paramName: string) {
@@ -36,15 +36,21 @@ function useUrlParam(paramName: string) {
     return { paramValue, updateParam };
 }
 
-// کش داده‌های ویژگی‌ها
+// کش داده‌های ویژگی‌ها و هندل های لایه
 const featuresCache = new Map<string, any>();
+const layerMap = new Map<string, any>(); // برای ذخیره لایه هر feature
 
-export default function NosaziLayer() {
+interface NosaziLayerProps {
+    onLoadingChange?: (isLoading: boolean) => void;
+}
+
+export default function NosaziLayer({ onLoadingChange }: NosaziLayerProps) {
     const map = useMap();
     const geoLayerRef = useRef<any>(null);
     const [loading, setLoading] = useState(false);
     const [L, setL] = useState<any>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
+    const [isZooming, setIsZooming] = useState(false);
 
     const [tooltipData, setTooltipData] = useState<{
         show: boolean;
@@ -70,6 +76,11 @@ export default function NosaziLayer() {
         isModalOpenRef.current = isModalOpen;
     }, [isModalOpen]);
 
+    // اطلاع‌رسانی تغییرات loading به کامپوننت والد
+    useEffect(() => {
+        onLoadingChange?.(loading);
+    }, [loading, onLoadingChange]);
+
     // بارگذاری leaflet
     useEffect(() => {
         import('leaflet').then((leaflet) => {
@@ -84,14 +95,48 @@ export default function NosaziLayer() {
             address: props.address || props.full_address || "آدرس موجود نیست",
             billId: props.bill_id || props.BillId || Math.floor(Math.random() * 10000000000000).toString(),
             paymentId: props.payment_id || props.PaymentId || Math.floor(Math.random() * 1000000000000).toString(),
-            amount: props.amount || 3500000,
+            amount: props.amount || 0,
             ownerName: props.owner_name || props.OwnerName || "نامشخص",
             area: props.area || props.Area || "نامشخص",
+            geometry: feature.geometry // ذخیره geometry برای زوم
         };
     };
 
-    const handleFeatureClick = (info: any) => {
-        // تبدیل داده‌ها به فرمتی که NosaziModal انتظار دارد
+    // تابع زوم روی یک feature خاص
+    const zoomToFeature = (featureInfo: any) => {
+        if (!map || !featureInfo.geometry || isZooming) return;
+
+        setIsZooming(true);
+
+        try {
+            // استخراج مختصات از geometry
+            let coordinates = null;
+            if (featureInfo.geometry.type === 'Polygon') {
+                coordinates = featureInfo.geometry.coordinates[0];
+            } else if (featureInfo.geometry.type === 'MultiPolygon') {
+                coordinates = featureInfo.geometry.coordinates[0][0];
+            }
+
+            if (coordinates && coordinates.length > 0) {
+                // تبدیل به فرمت Leaflet
+                const latLngs = coordinates.map((coord: number[]) => [coord[1], coord[0]]);
+                const bounds = L.latLngBounds(latLngs);
+
+                // زوم روی bounds با padding
+                map.fitBounds(bounds, {
+                    padding: [50, 50],
+                    maxZoom: 20,
+                    duration: 0.5 // انیمیشن زوم
+                });
+            }
+        } catch (error) {
+            console.error('Error zooming to feature:', error);
+        } finally {
+            setTimeout(() => setIsZooming(false), 500);
+        }
+    };
+
+    const handleFeatureClick = (info: any, shouldZoom: boolean = true) => {
         const modalData = {
             code: info.nosaziCode,
             address: info.address,
@@ -105,12 +150,37 @@ export default function NosaziLayer() {
         setSelectedNosazi(modalData);
         setIsModalOpen(true);
         updateParam(info.nosaziCode);
+
+        // زوم روی ملک فقط زمانی که مودال باز می‌شه
+        if (shouldZoom) {
+            // کمی تاخیر برای اطمینان از باز شدن مودال
+            setTimeout(() => {
+                zoomToFeature(info);
+            }, 100);
+        }
     };
 
     const handleCloseModal = () => {
         setIsModalOpen(false);
         setSelectedNosazi(null);
         updateParam(null);
+    };
+
+    // تابع هایلایت کردن feature
+    const highlightFeature = (nosaziCode: string) => {
+        // ریست کردن هایلایت قبلی
+        layerMap.forEach((layer, code) => {
+            if (layer && layer.setStyle) {
+                layer.setStyle({ color: '#0d6efd', weight: 1 });
+            }
+        });
+
+        // هایلایت feature جدید
+        const layer = layerMap.get(nosaziCode);
+        if (layer && layer.setStyle) {
+            layer.setStyle({ color: '#ff0000', weight: 3 });
+            layer.bringToFront();
+        }
     };
 
     const loadData = async () => {
@@ -122,12 +192,13 @@ export default function NosaziLayer() {
             if (geoLayerRef.current) {
                 geoLayerRef.current.remove();
                 geoLayerRef.current = null;
+                layerMap.clear();
             }
             return;
         }
 
         const bounds = map.getBounds();
-        const url = `/api/sabzevar/Sabzevar/Nosazi?minx=${bounds.getWest()}&miny=${bounds.getSouth()}&maxx=${bounds.getEast()}&maxy=${bounds.getNorth()}&zoom=${currentZoom}`;
+        const url = `/api/sabzevar/Sabzevar/Nosazi?minx=${bounds.getWest()}&miny=${bounds.getSouth()}&maxx=${bounds.getEast()}&maxy=${bounds.getNorth()}&zoom=${currentZoom}&vcode=f0b4db73-94fb-42c5-adda-857485a90745`;
 
         setLoading(true);
 
@@ -151,12 +222,14 @@ export default function NosaziLayer() {
                 if (geoLayerRef.current) {
                     geoLayerRef.current.remove();
                     geoLayerRef.current = null;
+                    layerMap.clear();
                 }
                 return;
             }
 
             if (geoLayerRef.current) {
                 geoLayerRef.current.remove();
+                layerMap.clear();
             }
 
             geoLayerRef.current = L.geoJSON(data, {
@@ -168,6 +241,7 @@ export default function NosaziLayer() {
                 onEachFeature: (feature: any, layer: any) => {
                     const info = extractFeatureInfo(feature);
                     featuresCache.set(info.nosaziCode, info);
+                    layerMap.set(info.nosaziCode, layer);
 
                     layer.on('mouseover', (e: any) => {
                         layer.setStyle({ color: 'red', weight: 2 });
@@ -182,13 +256,17 @@ export default function NosaziLayer() {
                     });
 
                     layer.on('mouseout', () => {
-                        layer.setStyle({ color: '#0d6efd', weight: 1 });
+                        // فقط اگر هایلایت نشده باشه رنگ رو برگردون
+                        if (selectedNosazi?.code !== info.nosaziCode) {
+                            layer.setStyle({ color: '#0d6efd', weight: 1 });
+                        }
                         setTooltipData(prev => ({ ...prev, show: false }));
                     });
 
                     layer.on('click', (e: any) => {
                         L.DomEvent.stopPropagation(e);
-                        handleFeatureClick(info);
+                        handleFeatureClick(info, true);
+                        highlightFeature(info.nosaziCode);
                     });
                 },
                 pointToLayer: (feature: any, latlng: any) => {
@@ -202,14 +280,15 @@ export default function NosaziLayer() {
                 }
             }).addTo(map);
 
-            // ✅ مرحله ۳ از منطق هوشمند: اگر بعد از لود شدن داده‌ها، کد URL در کش پیدا شد، مودال را باز کن
+            // اگر از URL کد نوسازی داریم و مودال باز نیست
             if (urlPointValue && !isModalOpenRef.current && featuresCache.has(urlPointValue)) {
                 setTimeout(() => {
                     if (!isModalOpenRef.current && featuresCache.has(urlPointValue)) {
                         const info = featuresCache.get(urlPointValue);
-                        handleFeatureClick(info);
+                        handleFeatureClick(info, true);
+                        highlightFeature(info.nosaziCode);
                     }
-                }, 300); // تاخیر کوتاه برای اطمینان از رندر شدن نقشه
+                }, 300);
             }
 
         } catch (error: any) {
@@ -241,18 +320,17 @@ export default function NosaziLayer() {
         }
     }, [map, L]);
 
-    // ✅ مرحله ۱ و ۲ از منطق هوشمند: تلاش برای باز کردن مودال به محض وجود پارامتر در URL
     useEffect(() => {
         const tryOpenFromUrl = async () => {
             if (!urlPointValue || isModalOpenRef.current) return;
 
-            // ۱. اگر در کش موجود است، بلافاصله باز کن (سریع‌ترین حالت)
             if (featuresCache.has(urlPointValue)) {
-                handleFeatureClick(featuresCache.get(urlPointValue));
+                const info = featuresCache.get(urlPointValue);
+                handleFeatureClick(info, true);
+                highlightFeature(info.nosaziCode);
                 return;
             }
 
-            // ۲. اگر در کش نیست، تلاش کن مستقیماً از API بگیر (اگر بک‌اند ساپورت می‌کند)
             try {
                 const res = await fetch(`/api/sabzevar/Sabzevar/Nosazi?code=${urlPointValue}`);
                 if (res.ok) {
@@ -260,22 +338,18 @@ export default function NosaziLayer() {
                     if (data?.features?.length > 0) {
                         const info = extractFeatureInfo(data.features[0]);
                         featuresCache.set(info.nosaziCode, info);
-                        handleFeatureClick(info);
-
-                        // اختیاری: اگر بک‌اند مختصات را برمی‌گرداند، نقشه را به آنجا زوم کن
-                        // const coords = data.features[0].geometry.coordinates;
-                        // if (coords && map) map.flyTo([coords[1], coords[0]], 18);
+                        handleFeatureClick(info, true);
+                        highlightFeature(info.nosaziCode);
                         return;
                     }
                 }
             } catch (err) {
-                // اگر اندپوینت تکی پشتیبانی نشود، خطا نادیده گرفته می‌شود و مرحله ۳ (داخل loadData) آن را هندل می‌کند
                 console.log("Direct fetch not supported, waiting for map loadData...");
             }
         };
 
         tryOpenFromUrl();
-    }, [urlPointValue, map]); // وابستگی به urlPointValue و map
+    }, [urlPointValue, map]);
 
     return (
         <>
@@ -320,12 +394,6 @@ export default function NosaziLayer() {
                 onClose={handleCloseModal}
                 nosaziData={selectedNosazi || { code: '', address: '' }}
             />
-
-            {loading && (
-                <div className="absolute bottom-5 right-5 bg-black/70 text-white px-3 py-2 rounded text-sm z-[1000]">
-                    در حال بارگذاری داده‌های نوسازی...
-                </div>
-            )}
 
             <style jsx global>{`
                 @keyframes fadeIn {

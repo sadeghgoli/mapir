@@ -148,7 +148,6 @@ const ProfileModal = ({ isOpen, onClose, userData }: ProfileModalProps) => {
             {/* بکدراپ تیره */}
             <div
                 className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 animate-fadeIn"
-                onClick={onClose}
             />
 
             {/* مودال اصلی */}
@@ -184,9 +183,9 @@ const ProfileModal = ({ isOpen, onClose, userData }: ProfileModalProps) => {
                                             className="w-12 h-12"
                                         />
                                     </div>
-                                    <h3 className="font-bold text-lg">{userData?.name || 'حسن رضایی مقدم'}</h3>
+                                    <h3 className=" text-lg">{userData?.name || 'ورود به حساب'}</h3>
                                 </div>
-                                <p className="text-lg opacity-90">{userData?.phone || '09123456789'}</p>
+                                <p className="text-lg opacity-90">{userData?.phone || '-'}</p>
 
                             </div>
                         </div>
