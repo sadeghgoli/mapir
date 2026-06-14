@@ -48,7 +48,7 @@ export default function UserCard() {
                 <Link href="https://sabzevar.ir">
                     <button
                         id="my-anchor-element"
-                        className="md:w-12 md:h-12 w-10 h-10 rounded-lg bg-white shadow-lg flex items-center justify-center"
+                        className="w-12 h-12 rounded-lg bg-white shadow-lg flex items-center justify-center"
                     >
                         <img src="/images/solar_round-arrow-left-bold-duotone.png" alt=""/>
                     </button>
