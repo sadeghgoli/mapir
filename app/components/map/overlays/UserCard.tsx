@@ -25,7 +25,7 @@ export default function UserCard() {
     };
 
     return (
-        <div className="absolute top-12 left-8 z-[1000]">
+        <div className="absolute top-24 md:top-8 left-8 z-[1000]">
             <div className="flex items-center gap-3">
                 <div
                     className="bg-cyan-800 text-white rounded-lg px-2 h-12 shadow-xl flex items-center gap-4 cursor-pointer"

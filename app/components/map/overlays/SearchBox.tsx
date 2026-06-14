@@ -16,7 +16,7 @@ export default function SearchBox() {
         <div
             className="
                 absolute
-                top-12
+                top-8
                 right-8
                 z-[1000]
                 flex
