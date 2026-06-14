@@ -17,7 +17,8 @@ export default function SearchBox() {
             className="
                 absolute
                 top-8
-                right-8
+                left-6
+                md:right-8
                 z-[1000]
                 flex
                 gap-2

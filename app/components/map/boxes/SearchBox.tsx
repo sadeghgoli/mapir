@@ -434,8 +434,9 @@ const SearchBox2 = () => {
                                                             onBlur={() => setFocusedIdx(null)}
                                                             className="
                                                                 absolute
-                                                                w-12 h-12
-                                                                text-center text-md 
+                                                                md:w-12 md:h-12
+                                                                w-8 h-8
+                                                                text-center text-md
                                                                 outline-none
                                                                 bg-transparent
                                                                 caret-transparent
@@ -449,7 +450,9 @@ const SearchBox2 = () => {
 
                                                         <div
                                                             className={`
-                                                                w-2 h-2 rounded-full border-2
+                                                                md:w-2 md:h-2 
+                                                                w-1 h-1 
+                                                                rounded-full border-2
                                                                 transition-all
                                                                 ${isFilled ? 'hidden' : 'border-gray-300 bg-transparent'}
                                                                 ${isFocused ? 'border-[#6B9A9D] scale-125' : ''}
