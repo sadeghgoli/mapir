@@ -351,7 +351,7 @@ const SearchBox2 = () => {
                         shadow-lg
                         px-5
                         h-12
-                        w-[400px]
+                        md:w-[400px]
                         flex
                         items-center
                         gap-4
@@ -386,7 +386,7 @@ const SearchBox2 = () => {
                                 rounded-lg
                                 h-auto
                                 min-h-12
-                                w-[400px]
+                                md:w-[400px]
                                 flex
                                 flex-col
                                 shadow-2xl
