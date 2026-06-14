@@ -1,28 +1,32 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import {AuthProvider} from "@/app/contexts/AuthContext";
-
+import { AuthProvider } from "@/app/contexts/AuthContext";
 
 export const metadata: Metadata = {
-  title: "نقشه شهرداری سبزوار",
-  description: "نقشه شهرداری سبزوار",
+    title: "نقشه شهرداری سبزوار",
+    description: "نقشه شهرداری سبزوار",
+};
+
+export const viewport: Viewport = {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: true,
 };
 
 export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
+                                       children,
+                                   }: Readonly<{
+    children: React.ReactNode;
 }>) {
-  return (
-    <html lang="fa" dir={'rtl'}>
-      <body
-        className={` antialiased`}
-      >
-      <AuthProvider>  {/* حتماً اینجا باشه */}
-          {children}
-      </AuthProvider>
-      </body>
-    </html>
-  );
+    return (
+        <html lang="fa" dir={"rtl"}>
+        <body className={`antialiased`}>
+        <AuthProvider>
+            {children}
+        </AuthProvider>
+        </body>
+        </html>
+    );
 }
