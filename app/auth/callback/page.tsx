@@ -61,6 +61,8 @@ function CallbackContent() {
                         }
                     });
 
+                    console.log(response)
+
                     if (response.ok) {
                         const userData = await response.json();
 
@@ -87,7 +89,7 @@ function CallbackContent() {
                     localStorage.removeItem('token');
 
                     setTimeout(() => {
-                        router.push('/');
+                        // router.push('/');
                     }, 2000);
                 }
             } else {
@@ -96,7 +98,7 @@ function CallbackContent() {
                 setStatus('error');
 
                 setTimeout(() => {
-                    router.push('/');
+                    // router.push('/');
                 }, 2000);
             }
         };
