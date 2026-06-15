@@ -22,7 +22,7 @@ export interface UserTokenResponse {
   user: UserInfo;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5046';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://apiweb-payonmap.sabzevar.ir:8446/api';
 
 class AuthService {
   private accessToken: string | null = null;

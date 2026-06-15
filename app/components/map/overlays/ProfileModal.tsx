@@ -1,36 +1,34 @@
-import React, {useEffect, useState} from 'react';
-import {X} from "lucide-react";
-import PaymentHistoryModal from "./PaymentHistoryMoal";
-import SelectedLocationsModal from "@/app/components/map/overlays/SelectedLocationsModal";
-import LogoutConfirmationModal from "@/app/components/map/overlays/LogoutConfirmationModal";
+// app/components/map/overlays/ProfileModal.tsx
+'use client';
+
+import React, { useEffect, useState } from 'react';
+import { X } from 'lucide-react';
+import { useAuth } from '@/app/contexts/AuthContext';
+import PaymentHistoryModal from './PaymentHistoryMoal';
+import SelectedLocationsModal from './SelectedLocationsModal';
+import LogoutConfirmationModal from './LogoutConfirmationModal';
 
 interface ProfileModalProps {
     isOpen: boolean;
     onClose: () => void;
-    userData?: any; // اگر ساختار دقیق userData را می‌دانید، می‌توانید به جای any تایپ دقیق‌تری بنویسید
 }
 
-const ProfileModal = ({ isOpen, onClose, userData }: ProfileModalProps) => {
-    const [isModalOpen2, setIsModalOpen2] = useState(false);
-    const [isModalOpen3, setIsModalOpen3] = useState(false);
-    const [isModalOpen4, setIsModalOpen4] = useState(false);
+const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
+    const { user, logout } = useAuth();
+    const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+    const [isLocationsModalOpen, setIsLocationsModalOpen] = useState(false);
+    const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
-    // بستن مودال با دکمه ESC
+    // بستن با دکمه ESC
     useEffect(() => {
-        const handleEsc = (e: KeyboardEvent) => { // <-- تایپ KeyboardEvent اضافه شد
-            if (e.key === 'Escape') {
-                onClose();
-            }
+        const handleEsc = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
         };
-        if (isOpen) {
-            window.addEventListener('keydown', handleEsc);
-        }
-        return () => {
-            window.removeEventListener('keydown', handleEsc);
-        };
+        if (isOpen) window.addEventListener('keydown', handleEsc);
+        return () => window.removeEventListener('keydown', handleEsc);
     }, [isOpen, onClose]);
 
-    // جلوگیری از اسکرول صفحه هنگام باز بودن مودال
+    // جلوگیری از اسکرول پشت مودال
     useEffect(() => {
         if (isOpen) {
             document.body.style.overflow = 'hidden';
@@ -45,191 +43,91 @@ const ProfileModal = ({ isOpen, onClose, userData }: ProfileModalProps) => {
     if (!isOpen) return null;
 
     const menuItems = [
-
         {
             id: 'payments',
             title: 'سوابق پرداخت',
             icon: '/images/solar_banknote-2-linear.png',
-            onClick: () => {
-                setIsModalOpen2(true)
-            }
+            onClick: () => setIsPaymentModalOpen(true),
         },
         {
             id: 'locations',
-            title: 'مکان های منتخب',
+            title: 'مکان‌های منتخب',
             icon: '/images/solar_star-circle-linear.png',
-            onClick: () => {
-                setIsModalOpen3(true)
-            }
+            onClick: () => setIsLocationsModalOpen(true),
         },
         {
             id: 'logout',
             title: 'خروج از حساب کاربری',
             icon: '/images/iconamoon_exit-light.png',
-            onClick: () => {
-                 setIsModalOpen4(true)
-            },
-            isDanger: true // برای استایل قرمز
-        }
-    ];
-
-
-    const data = [
-        {
-            id: '۱',
-            trackingCode: '۵۰۱۲۳۵۶۷',
-            authCode: 'A9C7F3K2104587',
-            billId: '۱۲۳۴۶۷۸۹۰۲۳',
-            paymentId: '۹۸۷۶۵۴۳۲۱۰۱۲',
-            amount: '۳,۵۰,۰۰۰ ریال',
-            date: '۱۴۰۳/۰۶/۱۲',
-            time: '۱:۴۵',
-            status: 'موفق',
+            onClick: () => setIsLogoutModalOpen(true),
+            isDanger: true,
         },
-        {
-            id: '۲',
-            trackingCode: '۵۰۱۲۳۵۶۷',
-            authCode: 'A9C7F3K2104587',
-            billId: '۲۳۴۵۶۸۹۰۱۲',
-            paymentId: '۹۸۷۶۵۴۳۲۱۰۱۲',
-            amount: '۳,۵۰۰,۰۰۰ ریال',
-            date: '۱۴۰۳/۰۶/۱۲',
-            time: '۱۰:۴۵',
-            status: 'ناموفق',
-        },
-        {
-            id: '۳',
-            trackingCode: '۵۵۰۱۲۳۴۵۶۷',
-            authCode: 'A9C7F3K2104587',
-            billId: '۱۲۳۴۵۶۷۸۹۰۱۲۳',
-            paymentId: '۹۸۷۶۴۳۲۱۰۱۲',
-            amount: '۳,۵۰۰,۰۰۰ ریال',
-            date: '۱۴۰۳/۰۶/۱۲',
-            time: '۱۰:۴۵',
-            status: 'موفق',
-        },
-        {
-            id: '۴',
-            trackingCode: '۵۵۰۱۲۳۴۵۶۷',
-            authCode: 'A9C7F3K2104587',
-            billId: '۱۲۳۴۵۶۷۸۹۰۱۲۳',
-            paymentId: '۸۷۶۵۴۳۲۱۰۱۲',
-            amount: '۳,۵۰,۰۰۰ ریال',
-            date: '۱۴۰۳/۰۶/۱',
-            time: '۱۰:۴۵',
-            status: 'موفق',
-        },
-        {
-            id: '۵',
-            trackingCode: '۵۰۱۲۳۴۶۷',
-            authCode: 'A9C7F3K2104587',
-            billId: '۱۳۴۵۶۷۹۰۱۲۳',
-            paymentId: '۹۸۷۶۵۴۳۲۱۰۱۲',
-            amount: '۳,۵۰۰,۰۰۰ ریال',
-            date: '۱۴۰۳/۰۶/۱۲',
-            time: '۱۰:۴۵',
-            status: 'موفق',
-        },
-    ];
-
-    const locationsData = [
-        {
-            code: '۸۷۶۵۴۳۲۱۰۱۲۳',
-            address: 'خراسان رضوی، سبزوار، بلوار امامت، بیهقی شمالی، بیهقی شمالی ۱۲، پلاک ۱۴'
-        },
-        {
-            code: '۸۷۶۴۳۲۱۰۱۲۳',
-            address: 'خراسان رضوی، سبزوار، بلوار امامت، بیهقی شمالی، بیهقی شمالی ۱۲، پلاک ۱۴'
-        }
     ];
 
     return (
         <>
             {/* بکدراپ تیره */}
-            <div
-                className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 animate-fadeIn"
-            />
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 animate-fadeIn" onClick={onClose} />
 
             {/* مودال اصلی */}
             <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-lg animate-slideUp">
                 <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
-
-                    {/* هدر مودال با اطلاعات کاربر */}
-                    <div className="bg-[#145d6e] px-5 py-2 text-white flex justify-between items-center w-full">
-                       <div className="flex items-center gap-2">
-                           <img src="/images/solar_user-circle-bold-duotone2.png" alt=""/>
-                           <p className="text-sm">
-                               پروفایل کاربری
-                           </p>
-                       </div>
-                        <button
-                            onClick={onClose}
-                            className="py-2 text-white text-sm font-medium transition-colors"
-                        >
+                    {/* هدر مودال */}
+                    <div className="bg-[#145d6e] px-5 py-3 text-white flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                            <img src="/images/solar_user-circle-bold-duotone2.png" alt="profile" className="w-6 h-6" />
+                            <p className="text-sm font-medium">پروفایل کاربری</p>
+                        </div>
+                        <button onClick={onClose} className="hover:opacity-80 transition-opacity">
                             <X className="w-5 h-5" />
                         </button>
                     </div>
 
-                    {/* منوها */}
-                    <div className="py-2" style={{background: '#f9f9f9'}}>
-                        <div className="p-3">
-                            <div className="flex items-center gap-3 border justify-between rounded-lg border-gray-200 bg-white px-3">
-
-                                <div className="flex justify-center items-center">
-                                    <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center">
-                                        <img
-                                            src="/images/profie-in-modal.png"
-                                            alt="avatar"
-                                            className="w-12 h-12"
-                                        />
+                    {/* محتوای مودال */}
+                    <div className="py-2 bg-gray-50">
+                        <div className="p-4">
+                            <div className="flex items-center justify-between border rounded-lg border-gray-200 bg-white px-4 py-3">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
+                                        <img src={user?.avatar || "/images/profie-in-modal.png"} alt="avatar" className="w-10 h-10 rounded-full" />
                                     </div>
-                                    <h3 className=" text-lg">{userData?.name || 'ورود به حساب'}</h3>
+                                    <div>
+                                        <h3 className="text-gray-800 font-semibold">{user?.name || 'کاربر مهمان'}</h3>
+                                        <p className="text-gray-500 text-sm">{user?.phone || 'شماره ثبت نشده'}</p>
+                                    </div>
                                 </div>
-                                <p className="text-lg opacity-90">{userData?.phone || '-'}</p>
-
+                                {user?.email && <p className="text-gray-500 text-sm hidden sm:block">{user.email}</p>}
                             </div>
                         </div>
+
                         {menuItems.map((item) => (
                             <button
                                 key={item.id}
                                 onClick={item.onClick}
                                 className={`
-                  w-full px-5 py-3 flex items-center gap-3 transition-all duration-200
-                  hover:bg-gray-50 active:bg-gray-100
-                  ${item.isDanger ? 'text-red-600 hover:bg-red-50' : 'text-gray-700'}
-                  border-b
-                  border-gray-200
-                  last:border-0
-                `}
+                                    w-full px-5 py-3 flex items-center gap-3 transition-all duration-200
+                                    hover:bg-gray-100 active:bg-gray-200
+                                    ${item.isDanger ? 'text-red-600 hover:bg-red-50' : 'text-gray-700'}
+                                    border-b border-gray-100 last:border-0
+                                `}
                             >
                                 <div className="w-6 h-6 flex items-center justify-center">
                                     <img src={item.icon} alt="" className="w-5 h-5" />
                                 </div>
                                 <span className="flex-1 text-right font-medium">{item.title}</span>
-
                             </button>
                         ))}
                     </div>
-
-
                 </div>
             </div>
-            {/* مودال */}
-            <PaymentHistoryModal
-                isOpen={isModalOpen2}
-                onClose={() => setIsModalOpen2(false)}
-                data={data}
-            />
 
-            <SelectedLocationsModal
-                isOpen={isModalOpen3}
-                onClose={() => setIsModalOpen3(false)}
-                data={locationsData}
-            />
-
+            {/* مودال‌های ثانویه */}
+            <PaymentHistoryModal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} />
+            <SelectedLocationsModal isOpen={isLocationsModalOpen} onClose={() => setIsLocationsModalOpen(false)} />
             <LogoutConfirmationModal
-                isOpen={isModalOpen4}
-                onClose={() => setIsModalOpen4(false)}
+                isOpen={isLogoutModalOpen}
+                onClose={() => setIsLogoutModalOpen(false)}
+                onConfirm={logout}
             />
         </>
     );

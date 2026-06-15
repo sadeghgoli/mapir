@@ -1,84 +1,95 @@
+// app/auth/callback/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/app/contexts/AuthContext';
 
 export default function AuthCallbackPage() {
     const searchParams = useSearchParams();
     const router = useRouter();
-    const { apiRequest, refreshToken } = useAuth();
+    const { login, user, updateUser, isLoading } = useAuth();
     const [error, setError] = useState<string | null>(null);
+    const [processing, setProcessing] = useState(true);
 
     useEffect(() => {
         const handleCallback = async () => {
-            const token = searchParams.get('token');
-            const code = searchParams.get('code');
-            const state = searchParams.get('state');
+            const tokenParam = searchParams.get('token');
+            const stateParam = searchParams.get('state');
             const errorParam = searchParams.get('error');
 
+            // ۱. بررسی خطا از سمت درگاه لاگین
             if (errorParam) {
                 setError(errorParam);
+                setProcessing(false);
                 setTimeout(() => router.push('/'), 3000);
                 return;
             }
 
-            if (!state) {
-                setError('State parameter missing');
-                setTimeout(() => router.push('/'), 3000);
-                return;
-            }
-
+            // ۲. اعتبارسنجی state parameter برای جلوگیری از CSRF
             const savedState = sessionStorage.getItem('loginState');
-            if (state !== savedState) {
-                setError('State validation failed');
+            if (stateParam !== savedState) {
+                setError('State parameter نامعتبر است');
+                setProcessing(false);
                 setTimeout(() => router.push('/'), 3000);
                 return;
             }
             sessionStorage.removeItem('loginState');
 
-            if (!token && !code) {
-                setError('No token or code received');
-                setTimeout(() => router.push('/'), 3000);
-                return;
-            }
-
-            try {
-                // اگر توکن مستقیم آمده، ذخیره می‌کنیم
-                if (token) {
+            // ۳. دریافت و ذخیره توکن از پارامترهای URL یا لاگین خودکار
+            if (tokenParam) {
+                try {
+                    const token = decodeURIComponent(tokenParam);
                     localStorage.setItem('accessToken', token);
-                    await refreshToken(); // برای گرفتن user info از /me
-                }
-                // اگر کد آمده، باید با بک‌اند صحبت کنیم (طبق مستندات callback خود بک‌اند توکن می‌دهد)
-                // در اینجا فرض می‌کنیم بک‌اند قبلاً توکن را برگردانده، پس فقط ذخیره می‌کنیم.
-                // اگر نیاز به تبادل کد دارید، باید یک endpoint دیگر بزنید.
 
+                    // دریافت اطلاعات کاربر با توکن جدید
+                    const API_BASE = 'https://apiweb-payonmap.sabzevar.ir:8446';
+                    const response = await fetch(`${API_BASE}/api/Auth/me`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    if (response.ok) {
+                        const userData = await response.json();
+                        updateUser(userData);
+                    }
+
+                    router.push('/');
+                } catch (err) {
+                    console.error('خطا در پردازش توکن:', err);
+                    setError('خطا در پردازش اطلاعات ورود');
+                    setProcessing(false);
+                    setTimeout(() => router.push('/'), 3000);
+                }
+            }
+            // ۴. در صورت نبود توکن، ممکن است لاگین از طریق provider انجام شده باشد
+            else if (!user && !isLoading) {
+                await login();
+            } else {
                 router.push('/');
-            } catch (err) {
-                console.error(err);
-                setError('خطا در پردازش ورود');
-                setTimeout(() => router.push('/'), 3000);
             }
         };
 
         handleCallback();
-    }, [searchParams, router, refreshToken]);
+    }, [searchParams, router, login, user, isLoading, updateUser]);
+
+    if (error) {
+        return (
+            <div className="flex items-center justify-center h-screen bg-gray-100">
+                <div className="bg-white p-8 rounded-lg shadow-md text-center max-w-md">
+                    <h2 className="text-red-600 text-xl mb-4">خطا در ورود</h2>
+                    <p className="text-gray-700 mb-4">{error}</p>
+                    <p className="text-sm text-gray-500">در حال انتقال به صفحه اصلی...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex items-center justify-center h-screen bg-gray-100">
             <div className="bg-white p-8 rounded-lg shadow-md text-center">
-                {error ? (
-                    <>
-                        <h2 className="text-red-600 text-xl mb-2">خطا در ورود</h2>
-                        <p>{error}</p>
-                        <p className="text-sm text-gray-500 mt-4">در حال انتقال به صفحه اصلی...</p>
-                    </>
-                ) : (
-                    <>
-                        <h2 className="text-green-600 text-xl mb-2">در حال ورود...</h2>
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mt-4"></div>
-                    </>
-                )}
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-800 mx-auto mb-4"></div>
+                <h2 className="text-gray-800 text-xl">در حال ورود به حساب کاربری...</h2>
+                <p className="text-gray-500 text-sm mt-2">لطفاً چند لحظه صبر کنید</p>
             </div>
         </div>
     );

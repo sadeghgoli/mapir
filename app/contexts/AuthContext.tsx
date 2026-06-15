@@ -1,9 +1,10 @@
+// app/contexts/AuthContext.tsx
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-interface User {
+export interface User {
     id: string;
     name: string;
     phone: string;
@@ -20,11 +21,12 @@ interface AuthContextType {
     logout: () => Promise<void>;
     refreshToken: () => Promise<string | null>;
     apiRequest: <T = any>(url: string, options?: RequestInit) => Promise<T>;
+    updateUser: (userData: User) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const API_BASE = 'http://localhost:5046/api/Auth';
+const API_BASE = 'https://apiweb-payonmap.sabzevar.ir:8446';
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const router = useRouter();
@@ -32,9 +34,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [accessToken, setAccessToken] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    // بارگذاری اطلاعات کاربر در شروع
+    // تابع برای دریافت اطلاعات کاربر با توکن
+    const fetchCurrentUser = async (token: string): Promise<User | null> => {
+        try {
+            const response = await fetch(`${API_BASE}/api/Auth/me`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) return await response.json();
+            if (response.status === 401) return null;
+            return null;
+        } catch (error) {
+            console.error('Error fetching user:', error);
+            return null;
+        }
+    };
+
+    // بارگذاری اولیه کاربر از localStorage در start-up
     useEffect(() => {
         const loadUser = async () => {
+            setIsLoading(true);
             const storedToken = localStorage.getItem('accessToken');
             if (storedToken) {
                 setAccessToken(storedToken);
@@ -42,7 +60,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 if (userData) {
                     setUser(userData);
                 } else {
-                    // توکن نامعتبر
                     localStorage.removeItem('accessToken');
                     setAccessToken(null);
                 }
@@ -52,52 +69,42 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         loadUser();
     }, []);
 
-    const fetchCurrentUser = async (token: string): Promise<User | null> => {
-        try {
-            const res = await fetch(`${API_BASE}/me`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (res.ok) return await res.json();
-            if (res.status === 401) return null;
-            return null;
-        } catch {
-            return null;
-        }
-    };
-
-    const initiateLogin = async () => {
-        const res = await fetch(`${API_BASE}/login`);
-        if (!res.ok) throw new Error('خطا در شروع فرآیند ورود');
-        const { loginUrl, state } = await res.json();
-        sessionStorage.setItem('loginState', state);
-        return loginUrl;
-    };
-
+    // شروع فرآیند لاگین با دریافت آدرس SSO
     const login = async () => {
         try {
-            const loginUrl = await initiateLogin();
+            const response = await fetch(`${API_BASE}/api/Auth/login`);
+            if (!response.ok) throw new Error('خطا در دریافت آدرس لاگین');
+            const { loginUrl, state } = await response.json();
+            sessionStorage.setItem('loginState', state);
             window.location.href = loginUrl;
         } catch (error) {
-            console.error('Login initiation failed:', error);
+            console.error('شروع لاگین با خطا مواجه شد:', error);
         }
     };
 
+    // تمدید accessToken با استفاده از refreshToken که در کوکی HttpOnly ذخیره شده
     const refreshToken = async (): Promise<string | null> => {
         try {
-            const res = await fetch(`${API_BASE}/refresh`, {
+            const response = await fetch(`${API_BASE}/api/Auth/refresh`, {
                 method: 'POST',
                 credentials: 'include',
             });
-            if (!res.ok) return null;
-            const data = await res.json();
-            setAccessToken(data.accessToken);
-            localStorage.setItem('accessToken', data.accessToken);
-            return data.accessToken;
-        } catch {
+            if (!response.ok) return null;
+            const data = await response.json();
+            const newToken = data.accessToken;
+            if (newToken) {
+                setAccessToken(newToken);
+                localStorage.setItem('accessToken', newToken);
+                return newToken;
+            }
+            return null;
+        } catch (error) {
+            console.error('خطا در تمدید توکن:', error);
             return null;
         }
     };
 
+    // تابع کمکی برای ارسال درخواست‌های احراز هویت شده
     const apiRequest = async <T = any>(
         url: string,
         options: RequestInit = {}
@@ -109,7 +116,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 ...options,
                 headers: {
                     ...options.headers,
-                    Authorization: `Bearer ${token}`,
+                    'Authorization': `Bearer ${token}`,
                 },
             });
 
@@ -118,11 +125,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 if (newToken) {
                     token = newToken;
                     return makeRequest(false);
+                } else {
+                    await logout(false);
+                    throw new Error('توکن منقضی شده و قادر به تمدید نیست');
                 }
             }
 
             if (!res.ok) {
-                throw new Error(`Request failed with status ${res.status}`);
+                const errorText = await res.text();
+                throw new Error(`درخواست با خطا مواجه شد: ${res.status} - ${errorText}`);
             }
             return res.json();
         };
@@ -130,23 +141,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return makeRequest();
     };
 
-    const logout = async () => {
+    // عملیات خروج از حساب
+    const logout = async (redirectToHome = true) => {
         try {
             if (accessToken) {
-                await fetch(`${API_BASE}/logout`, {
+                await fetch(`${API_BASE}/api/Auth/logout`, {
                     method: 'POST',
-                    headers: { Authorization: `Bearer ${accessToken}` },
+                    headers: { 'Authorization': `Bearer ${accessToken}` },
                     credentials: 'include',
                 });
             }
         } catch (error) {
-            console.error('Logout error:', error);
+            console.error('خطا در خروج از حساب:', error);
         } finally {
             localStorage.removeItem('accessToken');
             setAccessToken(null);
             setUser(null);
-            router.push('/');
+            if (redirectToHome) router.push('/');
         }
+    };
+
+    const updateUser = (userData: User) => {
+        setUser(userData);
     };
 
     return (
@@ -160,6 +176,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 logout,
                 refreshToken,
                 apiRequest,
+                updateUser,
             }}
         >
             {children}
