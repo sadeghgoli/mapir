@@ -435,7 +435,7 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1.5">مساحت ملک (متر مربع)</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1.5">مساحت زمین</label>
                                 <div className="relative">
                                     <Ruler className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                                     <input
@@ -494,13 +494,10 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                                             <span className="text-gray-500 text-xs block">طبقه</span>
                                             <span className="font-medium">{unit.sakhteman || '-'}</span>
                                         </div>
+
                                         <div>
-                                            <span className="text-gray-500 text-xs block">واحد</span>
-                                            <span className="font-medium">{unit.apar || '-'}</span>
-                                        </div>
-                                        <div>
-                                            <span className="text-gray-500 text-xs block">مساحت (متر)</span>
-                                            <span className="font-medium">{unit.area?.toLocaleString() || '-'}</span>
+                                            <span className="text-gray-500 text-xs block">زیربنا (متر)</span>
+                                            <span className="font-medium">{unit.Zirbana?.toLocaleString() || '-'}</span>
                                         </div>
                                     </div>
                                     {unit.nameMalek && (

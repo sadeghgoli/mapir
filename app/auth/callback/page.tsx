@@ -12,7 +12,7 @@ function CallbackContent() {
 
     useEffect(() => {
         const handleCallback = async () => {
-            const tokenParam = searchParams.get('accessToken') || searchParams.get('token');
+            const tokenParam = searchParams.get('token') || searchParams.get('token');
             const stateParam = searchParams.get('state');
             const errorParam = searchParams.get('error');
             const errorDescription = searchParams.get('error_description');
@@ -71,7 +71,7 @@ function CallbackContent() {
                     const token = decodeURIComponent(tokenParam);
 
                     // ذخیره توکن در localStorage
-                    localStorage.setItem('accessToken', token);
+                    localStorage.setItem('token', token);
 
                     // دریافت اطلاعات کاربر برای تایید اعتبار توکن
                     const API_BASE = 'https://apiweb-payonmap.sabzevar.ir:8446';
@@ -90,7 +90,7 @@ function CallbackContent() {
                             // ارسال اطلاعات به صفحه اصلی از طریق postMessage
                             window.opener.postMessage({
                                 type: 'LOGIN_SUCCESS',
-                                accessToken: token,
+                                token: token,
                                 user: userData
                             }, window.location.origin);
 
@@ -109,7 +109,7 @@ function CallbackContent() {
                         }
                     } else {
                         // توکن نامعتبر است
-                        localStorage.removeItem('accessToken');
+                        localStorage.removeItem('token');
                         throw new Error('توکن دریافتی معتبر نیست');
                     }
                 } catch (err) {
@@ -118,7 +118,7 @@ function CallbackContent() {
                     setStatus('error');
 
                     // پاکسازی توکن نامعتبر
-                    localStorage.removeItem('accessToken');
+                    localStorage.removeItem('token');
 
                     setTimeout(() => {
                         if (window.opener && !window.opener.closed) {

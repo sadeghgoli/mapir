@@ -21,32 +21,54 @@ interface AuthContextType {
     logout: () => Promise<void>;
 }
 
+// اضافه کردن تایپ برای پنجره پاپ‌آپ
+let popupWindow: Window | null = null;
+let popupInterval: NodeJS.Timeout | null = null;
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const API_BASE_URL = 'https://apiweb-payonmap.sabzevar.ir:8446';
+
+// تابع کمکی برای دسترسی امن به localStorage
+const getLocalStorage = (key: string): string | null => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem(key);
+};
+
+const setLocalStorage = (key: string, value: string): void => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(key, value);
+};
+
+const removeLocalStorage = (key: string): void => {
+    if (typeof window === 'undefined') return;
+    localStorage.removeItem(key);
+};
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [accessToken, setAccessToken] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [mounted, setMounted] = useState(false);
     const router = useRouter();
     const searchParams = useSearchParams();
+
 
     // ذخیره اطلاعات
     const saveAuthData = useCallback((token: string, userData: User) => {
         console.log('💾 Saving auth data:', userData);
         setAccessToken(token);
         setUser(userData);
-        localStorage.setItem('accessToken', token);
-        localStorage.setItem('user', JSON.stringify(userData));
+        setLocalStorage('token', token);
+        setLocalStorage('user', JSON.stringify(userData));
     }, []);
 
     // پاک کردن اطلاعات
     const clearAuthData = useCallback(() => {
         setAccessToken(null);
         setUser(null);
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('user');
+        removeLocalStorage('token');
+        removeLocalStorage('user');
     }, []);
 
     // دریافت اطلاعات کاربر با توکن
@@ -82,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             const response = await fetch(`${API_BASE_URL}/api/auth/login`);
             const data = await response.json();
-
+            console.log(data)
             if (data.loginUrl) {
                 // باز کردن پنجره پاپ‌آپ
                 const popup = window.open(data.loginUrl, '_blank', 'width=800,height=600');
@@ -119,8 +141,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // بررسی و تکمیل اطلاعات کاربر بعد از لاگین
     const handleLoginSuccess = useCallback(async () => {
-        const storedToken = localStorage.getItem('accessToken');
-        const storedUser = localStorage.getItem('user');
+        const storedToken = getLocalStorage('token');
+        const storedUser = getLocalStorage('user');
 
         if (storedToken && storedUser) {
             // اطلاعات کامل وجود دارد
@@ -131,7 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 return true;
             } catch (e) {
                 console.error('Error loading user:', e);
-                localStorage.removeItem('user');
+                removeLocalStorage('user');
             }
         }
 
@@ -154,6 +176,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // گوش دادن به پیام‌های پنجره پاپ‌آپ
     useEffect(() => {
+        if (!mounted) return;
+
         const handleMessage = async (event: MessageEvent) => {
             // بررسی امنیت - اوریجین سرور خود را بررسی کنید
             // if (event.origin !== API_BASE_URL) return;
@@ -189,10 +213,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         window.addEventListener('message', handleMessage);
         return () => window.removeEventListener('message', handleMessage);
-    }, [fetchUserInfo, saveAuthData, router]);
+    }, [fetchUserInfo, saveAuthData, router, mounted]);
 
     // بررسی اولیه و مدیریت پارامترهای URL
     useEffect(() => {
+        console.log('🔍 TOKEN:', accessToken);
+        console.log('🔍 Current Browser URL:', window.location.href);
+        if (!mounted) return;
+
         const initAuth = async () => {
             setIsLoading(true);
 
@@ -200,12 +228,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const loginParam = searchParams.get('login');
             const tokenFromUrl = searchParams.get('token');
 
+            console.log(loginParam)
+
+
             if (loginParam === 'success' || tokenFromUrl) {
                 console.log('🔍 Login success detected in URL');
 
                 // پاک کردن پارامتر از URL بدون رفرش
                 const newUrl = window.location.pathname;
-                window.history.replaceState({}, '', newUrl);
+                // window.history.replaceState({}, '', newUrl);
+                router.replace(window.location.pathname, { scroll: false });
 
                 if (tokenFromUrl) {
                     // توکن در URL است
@@ -223,8 +255,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 }
             } else {
                 // بارگذاری عادی اطلاعات ذخیره شده
-                const storedToken = localStorage.getItem('accessToken');
-                const storedUser = localStorage.getItem('user');
+                const storedToken = getLocalStorage('token');
+                const storedUser = getLocalStorage('user');
 
                 if (storedToken && storedUser) {
                     try {
@@ -242,11 +274,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
 
         initAuth();
-    }, [searchParams, fetchUserInfo, saveAuthData, clearAuthData, handleLoginSuccess, router]);
+    }, [searchParams, fetchUserInfo, saveAuthData, clearAuthData, handleLoginSuccess, router, mounted]);
 
     // بررسی اعتبار توکن در بازه‌های زمانی (اختیاری)
     useEffect(() => {
-        if (!accessToken) return;
+        if (!mounted || !accessToken) return;
 
         const validateToken = async () => {
             const userInfo = await fetchUserInfo(accessToken);
@@ -260,7 +292,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const interval = setInterval(validateToken, 5 * 60 * 1000);
 
         return () => clearInterval(interval);
-    }, [accessToken, fetchUserInfo, logout]);
+    }, [accessToken, fetchUserInfo, logout, mounted]);
+
+    // ست کردن mounted بعد از رندر اولیه
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    // در حین SSR یا قبل از mount، یک حالت پیش‌فرض برگردان
+    if (!mounted) {
+        return (
+            <AuthContext.Provider
+                value={{
+                    user: null,
+                    accessToken: null,
+                    isLoading: true,
+                    isAuthenticated: false,
+                    login: async () => {},
+                    logout: async () => {},
+                }}
+            >
+                {children}
+            </AuthContext.Provider>
+        );
+    }
 
     return (
         <AuthContext.Provider

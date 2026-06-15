@@ -1,3 +1,6 @@
+// app/hooks/useSSO.ts
+'use client';
+
 import { useState, useEffect, useCallback } from 'react';
 
 interface SSOUser {
@@ -29,12 +32,20 @@ const USER_KEY = 'sso_user';
 
 export function useSSO(): UseSSOReturn {
     const [isLoading, setIsLoading] = useState(false);
-    const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_KEY));
-    const [user, setUser] = useState<SSOUser | null>(() => {
-        const saved = localStorage.getItem(USER_KEY);
-        return saved ? JSON.parse(saved) : null;
-    });
+    const [token, setToken] = useState<string | null>(null);
+    const [user, setUser] = useState<SSOUser | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [mounted, setMounted] = useState(false);
+
+    // فقط در سمت کلاینت اطلاعات را از localStorage بخوان
+    useEffect(() => {
+        setMounted(true);
+        const storedToken = localStorage.getItem(TOKEN_KEY);
+        const storedUser = localStorage.getItem(USER_KEY);
+
+        setToken(storedToken);
+        setUser(storedUser ? JSON.parse(storedUser) : null);
+    }, []);
 
     const handleMessage = useCallback((event: MessageEvent) => {
         // فقط پیام‌های از همین دامنه یا دامنه SSO رو قبول کن
@@ -57,9 +68,11 @@ export function useSSO(): UseSSOReturn {
     }, []);
 
     useEffect(() => {
+        if (!mounted) return;
+
         window.addEventListener('message', handleMessage);
         return () => window.removeEventListener('message', handleMessage);
-    }, [handleMessage]);
+    }, [handleMessage, mounted]);
 
     const login = useCallback(async () => {
         setIsLoading(true);

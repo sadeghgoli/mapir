@@ -62,7 +62,6 @@ const formatCodeForServer = (code: string): string => {
     }
 
     const formattedCode = fullParts.join('-');
-    console.log('formatCodeForServer - Input:', code, 'Output:', formattedCode);
 
     return formattedCode;
 };
@@ -164,19 +163,14 @@ export default function NosaziLayer({ onLoadingChange }: NosaziLayerProps) {
         let rawCode = "کد نوسازی موجود نیست";
         if (props.name && props.name !== "0" && props.name !== "") {
             rawCode = props.name;
-            console.log('Found name:', rawCode);
         } else if (props.Code_nosaz && props.Code_nosaz !== "0" && props.Code_nosaz !== "") {
             rawCode = props.Code_nosaz;
-            console.log('Found Code_nosaz:', rawCode);
         } else if (props.code && props.code !== "0" && props.code !== "") {
             rawCode = props.code;
-            console.log('Found code:', rawCode);
         } else if (props.codeN && props.codeN !== "0" && props.codeN !== "") {
             rawCode = props.codeN;
-            console.log('Found codeN:', rawCode);
         } else if (props.Code && props.Code !== "0" && props.Code !== "") {
             rawCode = props.Code;
-            console.log('Found Code:', rawCode);
         }
 
         // فرمت کردن کد برای نمایش
@@ -283,7 +277,6 @@ export default function NosaziLayer({ onLoadingChange }: NosaziLayerProps) {
             geometry: feature.geometry
         };
 
-        console.log('Extracted feature info:', result);
         return result;
     };
 

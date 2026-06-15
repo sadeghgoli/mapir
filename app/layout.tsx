@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/app/contexts/AuthContext";
+import { Suspense } from 'react';
 
 export const metadata: Metadata = {
     title: "پرداخت الکترونیک عوارض شهرداری سبزوار",
@@ -23,9 +24,13 @@ export default function RootLayout({
     return (
         <html lang="fa" dir={"rtl"}>
         <body className={`antialiased`}>
+        <Suspense fallback={<div>در حال بارگذاری احراز هویت...</div>}>
+
         <AuthProvider>
             {children}
         </AuthProvider>
+        </Suspense>
+
         </body>
         </html>
     );
