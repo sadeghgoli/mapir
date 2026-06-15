@@ -518,16 +518,16 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                     <div className="space-y-4">
                         <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                             <div className="flex justify-between items-center mb-2 pb-2 border-b border-gray-200">
-                                <span className="text-sm text-gray-500">کد نوسازی</span>
-                                <span className="font-mono text-[#145d6e]">{selectedUnit?.codeN || units[0]?.codeN}</span>
+                                <span className="text-lg text-gray-500">کد نوسازی</span>
+                                <span className="font-mono text-[#145d6e] text-lg">{selectedUnit?.codeN || units[0]?.codeN}</span>
                             </div>
                             <div className="flex flex-wrap gap-4 text-sm">
                 <span>
-                  <span className="text-gray-500">مالک:</span>
-                  <span className="text-right" dir="rtl">{selectedUnit?.nameMalek || ownerName || 'نامشخص'}</span>
+                  <span className="text-gray-500 text-lg">مالک:</span>{' '}
+                  <span className="text-right text-lg" dir="rtl">{selectedUnit?.nameMalek || ownerName || 'نامشخص'}</span>
                 </span>
-                                <span>
-                  <span className="text-gray-500">مساحت:</span>
+                                <span className={"text-lg"}>
+                  <span className="text-gray-500 text-lg">مساحت:</span>{' '}
                                     {selectedUnit?.area?.toLocaleString() || area || 'نامشخص'} متر
                 </span>
                             </div>
@@ -545,7 +545,7 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                                     <img src="/images/sharhdari-2.png" className="w-12 h-12" alt="" />
                                 </div>
                                 <div>
-                                    <h4 className="text-gray-800">عوارض نوسازی و عمران</h4>
+                                    <h4 className="text-gray-800">عوارض نوسازی و عمران شهری</h4>
                                     <p className="text-sm text-gray-500">
                                         مبلغ:
                                         <span className={`text-gray-800 ${!chargeAmount ? 'text-gray-400' : ''}`}>
@@ -575,7 +575,7 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                                     <img src="/images/sharhdari-2.png" className="w-12 h-12" alt="" />
                                 </div>
                                 <div>
-                                    <h4 className="text-gray-800">عوارض پسماند</h4>
+                                    <h4 className="text-gray-800">بهای خدمات مدیریت پسماند</h4>
                                     <p className="text-sm text-gray-500">
                                         مبلغ:
                                         <span className={`text-gray-800 ${!pasmandAmount ? 'text-gray-400' : ''}`}>
