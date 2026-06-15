@@ -22,20 +22,10 @@ function CallbackContent() {
                 setError(errorDescription || errorParam);
                 setStatus('error');
 
-                // ارسال خطا به صفحه اصلی
-                if (window.opener && !window.opener.closed) {
-                    window.opener.postMessage({
-                        type: 'LOGIN_ERROR',
-                        error: errorDescription || errorParam
-                    }, window.location.origin);
-                }
-
+                // حذف کدهای postMessage مربوط به popup
+                // بعد از 2 ثانیه به صفحه اصلی هدایت می‌شود
                 setTimeout(() => {
-                    if (window.opener) {
-                        window.close();
-                    } else {
-                        router.push('/');
-                    }
+                    router.push('/');
                 }, 2000);
                 return;
             }
@@ -46,19 +36,8 @@ function CallbackContent() {
                 setError('State parameter نامعتبر است');
                 setStatus('error');
 
-                if (window.opener && !window.opener.closed) {
-                    window.opener.postMessage({
-                        type: 'LOGIN_ERROR',
-                        error: 'State parameter نامعتبر است'
-                    }, window.location.origin);
-                }
-
                 setTimeout(() => {
-                    if (window.opener) {
-                        window.close();
-                    } else {
-                        router.push('/');
-                    }
+                    router.push('/');
                 }, 2000);
                 return;
             }
@@ -85,28 +64,15 @@ function CallbackContent() {
                     if (response.ok) {
                         const userData = await response.json();
 
-                        // اگر صفحه در popup باز شده است
-                        if (window.opener && !window.opener.closed) {
-                            // ارسال اطلاعات به صفحه اصلی از طریق postMessage
-                            window.opener.postMessage({
-                                type: 'LOGIN_SUCCESS',
-                                token: token,
-                                user: userData
-                            }, window.location.origin);
+                        // ذخیره اطلاعات کاربر در localStorage یا state management
+                        localStorage.setItem('user', JSON.stringify(userData));
 
-                            setStatus('success');
+                        setStatus('success');
 
-                            // بستن popup بعد از 1 ثانیه
-                            setTimeout(() => {
-                                window.close();
-                            }, 1000);
-                        } else {
-                            // اگر popup نیست، ریدایرکت به صفحه اصلی
-                            setStatus('success');
-                            setTimeout(() => {
-                                router.push('/');
-                            }, 1000);
-                        }
+                        // هدایت به صفحه اصلی بعد از موفقیت
+                        setTimeout(() => {
+                            router.push('/');
+                        }, 1000);
                     } else {
                         // توکن نامعتبر است
                         localStorage.removeItem('token');
@@ -121,15 +87,7 @@ function CallbackContent() {
                     localStorage.removeItem('token');
 
                     setTimeout(() => {
-                        if (window.opener && !window.opener.closed) {
-                            window.opener.postMessage({
-                                type: 'LOGIN_ERROR',
-                                error: err instanceof Error ? err.message : 'خطا در پردازش ورود'
-                            }, window.location.origin);
-                            window.close();
-                        } else {
-                            router.push('/');
-                        }
+                        router.push('/');
                     }, 2000);
                 }
             } else {
@@ -137,19 +95,8 @@ function CallbackContent() {
                 setError('توکن ورود یافت نشد');
                 setStatus('error');
 
-                if (window.opener && !window.opener.closed) {
-                    window.opener.postMessage({
-                        type: 'LOGIN_ERROR',
-                        error: 'توکن ورود یافت نشد'
-                    }, window.location.origin);
-                }
-
                 setTimeout(() => {
-                    if (window.opener && !window.opener.closed) {
-                        window.close();
-                    } else {
-                        router.push('/');
-                    }
+                    router.push('/');
                 }, 2000);
             }
         };
@@ -157,7 +104,7 @@ function CallbackContent() {
         handleCallback();
     }, [searchParams, router]);
 
-    // نمایش وضعیت‌های مختلف
+    // نمایش وضعیت‌های مختلف (بدون تغییر)
     if (status === 'error') {
         return (
             <div className="flex items-center justify-center min-h-screen bg-gray-100" dir="rtl">
@@ -169,7 +116,7 @@ function CallbackContent() {
                     </div>
                     <h2 className="text-red-600 text-xl font-bold mb-2">خطا در ورود</h2>
                     <p className="text-gray-700 mb-4">{error || 'خطای ناشناخته رخ داده است'}</p>
-                    <p className="text-sm text-gray-500">در حال بستن صفحه...</p>
+                    <p className="text-sm text-gray-500">در حال انتقال به صفحه اصلی...</p>
                 </div>
             </div>
         );
@@ -186,7 +133,7 @@ function CallbackContent() {
                     </div>
                     <h2 className="text-green-600 text-xl font-bold mb-2">ورود موفقیت‌آمیز</h2>
                     <p className="text-gray-700 mb-4">شما با موفقیت وارد حساب کاربری خود شدید</p>
-                    <p className="text-sm text-gray-500">در حال بستن صفحه...</p>
+                    <p className="text-sm text-gray-500">در حال انتقال به صفحه اصلی...</p>
                 </div>
             </div>
         );
