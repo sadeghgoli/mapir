@@ -146,17 +146,63 @@ const SearchBox2 = () => {
 
     const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
         e.preventDefault();
-        let pasted = convertToEnglish(e.clipboardData.getData('text'))
-            .replace(/[^0-9]/g, '')
-            .slice(0, 15);
+        let pasted = convertToEnglish(e.clipboardData.getData('text'));
 
+        // حذف کاراکترهای غیرعددی و غیرخط تیره
+        pasted = pasted.replace(/[^0-9-]/g, '');
+
+        // جدا کردن بر اساس خط تیره
+        const parts = pasted.split('-').filter(part => part.length > 0);
+
+        const groupSizes = [1, 2, 3, 3, 2, 2, 2];
         const newValues = [...values];
-        for (let i = 0; i < pasted.length; i++) {
-            newValues[i] = pasted[i];
+
+        let currentIndex = 0;
+
+        for (let i = 0; i < groupSizes.length && i < parts.length; i++) {
+            const groupSize = groupSizes[i];
+            const partValue = parts[i];
+
+            // پخش اعداد در خانه‌های گروه فعلی
+            for (let j = 0; j < groupSize && j < partValue.length; j++) {
+                if (currentIndex + j < 15) {
+                    newValues[currentIndex + j] = partValue[j];
+                }
+            }
+
+            // اگر مقدار بخش کوتاه‌تر از اندازه گروه بود، خانه‌های باقیمانده را خالی کن
+            if (partValue.length < groupSize) {
+                for (let j = partValue.length; j < groupSize; j++) {
+                    if (currentIndex + j < 15) {
+                        newValues[currentIndex + j] = '';
+                    }
+                }
+            }
+
+            currentIndex += groupSize;
         }
+
+        // اگر تعداد بخش‌های پیست شده کمتر از گروه‌ها بود، خانه‌های باقیمانده را خالی کن
+        if (parts.length < groupSizes.length) {
+            for (let i = currentIndex; i < 15; i++) {
+                newValues[i] = '';
+            }
+        }
+
         setValues(newValues);
-        if (pasted.length > 0) {
-            setTimeout(() => inputRefs.current[Math.min(pasted.length, 14)]?.focus(), 10);
+
+        // فوکوس به اولین خانه خالی یا آخرین خانه پر شده
+        let lastFilledIndex = -1;
+        for (let i = 0; i < 15; i++) {
+            if (newValues[i] !== '') {
+                lastFilledIndex = i;
+            }
+        }
+
+        if (lastFilledIndex >= 0 && lastFilledIndex < 14) {
+            setTimeout(() => inputRefs.current[lastFilledIndex + 1]?.focus(), 10);
+        } else if (lastFilledIndex === -1) {
+            setTimeout(() => inputRefs.current[0]?.focus(), 10);
         }
     };
 
