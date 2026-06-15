@@ -52,7 +52,7 @@ export default function UserCard() {
     };
 
     return (
-        <div className="absolute top-22 left-8 z-[1000]">
+        <div className="fixed top-22 md:top-8 left-8 z-[1000]">
             <div className="flex items-center gap-3">
                 <div
                     onClick={handleClick}

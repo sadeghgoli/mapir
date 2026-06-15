@@ -10,7 +10,7 @@ export default function BottomToolbar() {
     return (
         <div
             className="
-                absolute
+                fixed
                 bottom-0
                 left-1/2
                 -translate-x-1/2
