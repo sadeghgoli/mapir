@@ -1,29 +1,34 @@
 // app/components/map/UserCard.tsx
 'use client';
 
-import { useAuth } from '@/app/contexts/AuthContext';
 import ProfileModal from './ProfileModal';
 import { useState } from 'react';
 import Link from 'next/link';
 import { Tooltip } from 'react-tooltip';
+import { useSSO } from '../../../hooks/useSSO'; // مسیر relative یا absolute مناسب
 
 export default function UserCard() {
-    const { user, login, isLoading } = useAuth();
+    const { login, logout, isLoading, isLoggedIn, user, error } = useSSO();
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     const handleClick = () => {
-        if (!user) {
+        if (!isLoggedIn) {
             login();
         } else {
             setIsModalOpen(true);
         }
     };
 
+    const handleLogout = () => {
+        logout();
+        setIsModalOpen(false); // بستن مودال بعد از خروج
+    };
+
     return (
         <div className="absolute top-12 left-8 z-[1000]">
             <div className="flex items-center gap-3">
                 <div
-                    onClick={handleClick}
+                    onClick={isLoading ? '' : handleClick}
                     className="bg-cyan-800 text-white rounded-lg px-2 h-12 shadow-xl flex items-center gap-4 cursor-pointer hover:bg-cyan-900 transition-colors"
                 >
                     <div className="md:w-10 md:h-10 w-8 h-8 rounded-full bg-white/30 flex items-center justify-center">
@@ -31,10 +36,10 @@ export default function UserCard() {
                     </div>
                     <div className="hidden md:block">
                         <div className="text-sm font-medium">
-                            {isLoading ? 'در حال بارگذاری...' : (user?.name || 'ورود به حساب')}
+                            {isLoading ? 'در حال بارگذاری...' : (isLoggedIn && user ? user.name : 'ورود به حساب')}
                         </div>
                         <div className="text-xs opacity-80">
-                            {user?.phone || '-'}
+                            {isLoggedIn && user ? (user.phone || '-') : '-'}
                         </div>
                     </div>
                 </div>
@@ -61,7 +66,13 @@ export default function UserCard() {
                 />
             </div>
 
-            <ProfileModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+            {/* پاس دادن تابع logout به ProfileModal در صورت نیاز */}
+            <ProfileModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                onLogout={handleLogout}
+                user={user}
+            />
         </div>
     );
 }

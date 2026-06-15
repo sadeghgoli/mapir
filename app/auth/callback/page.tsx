@@ -21,13 +21,22 @@ function CallbackContent() {
             if (errorParam) {
                 setError(errorDescription || errorParam);
                 setStatus('error');
+
+                // ارسال خطا به صفحه اصلی
+                if (window.opener && !window.opener.closed) {
+                    window.opener.postMessage({
+                        type: 'LOGIN_ERROR',
+                        error: errorDescription || errorParam
+                    }, window.location.origin);
+                }
+
                 setTimeout(() => {
                     if (window.opener) {
                         window.close();
                     } else {
                         router.push('/');
                     }
-                }, 3000);
+                }, 2000);
                 return;
             }
 
@@ -36,13 +45,21 @@ function CallbackContent() {
             if (stateParam && savedState && stateParam !== savedState) {
                 setError('State parameter نامعتبر است');
                 setStatus('error');
+
+                if (window.opener && !window.opener.closed) {
+                    window.opener.postMessage({
+                        type: 'LOGIN_ERROR',
+                        error: 'State parameter نامعتبر است'
+                    }, window.location.origin);
+                }
+
                 setTimeout(() => {
                     if (window.opener) {
                         window.close();
                     } else {
                         router.push('/');
                     }
-                }, 3000);
+                }, 2000);
                 return;
             }
             sessionStorage.removeItem('loginState');
@@ -107,25 +124,33 @@ function CallbackContent() {
                         if (window.opener && !window.opener.closed) {
                             window.opener.postMessage({
                                 type: 'LOGIN_ERROR',
-                                error: 'خطا در پردازش ورود'
+                                error: err instanceof Error ? err.message : 'خطا در پردازش ورود'
                             }, window.location.origin);
                             window.close();
                         } else {
                             router.push('/');
                         }
-                    }, 3000);
+                    }, 2000);
                 }
             } else {
                 // بدون توکن - خطا
                 setError('توکن ورود یافت نشد');
                 setStatus('error');
+
+                if (window.opener && !window.opener.closed) {
+                    window.opener.postMessage({
+                        type: 'LOGIN_ERROR',
+                        error: 'توکن ورود یافت نشد'
+                    }, window.location.origin);
+                }
+
                 setTimeout(() => {
                     if (window.opener && !window.opener.closed) {
                         window.close();
                     } else {
                         router.push('/');
                     }
-                }, 3000);
+                }, 2000);
             }
         };
 

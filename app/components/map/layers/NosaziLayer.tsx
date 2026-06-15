@@ -36,9 +36,69 @@ function useUrlParam(paramName: string) {
     return { paramValue, updateParam };
 }
 
+// تابع تبدیل کد به فرمت مورد نیاز سرور (مشابه SearchBox2)
+const formatCodeForServer = (code: string): string => {
+    // اگر کد خالی است
+    if (!code || code === "کد نوسازی موجود نیست") {
+        return '0-00-000-000-00-00-00';
+    }
+
+    // جدا کردن بخش‌های کد بر اساس خط تیره
+    let parts = code.split('-');
+
+    // اندازه گروه‌ها به ترتیب
+    const groupSizes = [1, 2, 3, 3, 2, 2, 2];
+
+    // اگر تعداد بخش‌ها کمتر از 7 است، بخش‌های缺失 را با صفر پر کن
+    const fullParts = [];
+    for (let i = 0; i < groupSizes.length; i++) {
+        if (i < parts.length && parts[i]) {
+            // بخش موجود را با صفرهای سمت چپ به اندازه گروه پر کن
+            fullParts.push(parts[i].padStart(groupSizes[i], '0'));
+        } else {
+            // بخش缺失 را با صفر پر کن
+            fullParts.push('0'.repeat(groupSizes[i]));
+        }
+    }
+
+    const formattedCode = fullParts.join('-');
+    console.log('formatCodeForServer - Input:', code, 'Output:', formattedCode);
+
+    return formattedCode;
+};
+
+// تابع تبدیل کد به فرمت نمایش (با خط تیره)
+const formatCodeForDisplay = (code: string): string => {
+    if (!code || code === "کد نوسازی موجود نیست") return code;
+
+    // حذف صفرهای بی‌معنی از ابتدا و انتها
+    let parts = code.split('-');
+
+    // حذف بخش‌های صفر از انتها
+    let lastNonZeroIndex = -1;
+    for (let i = parts.length - 1; i >= 0; i--) {
+        if (parts[i] !== '0' && parts[i] !== '00' && parts[i] !== '000' && parts[i] !== '') {
+            lastNonZeroIndex = i;
+            break;
+        }
+    }
+
+    if (lastNonZeroIndex >= 0) {
+        parts = parts.slice(0, lastNonZeroIndex + 1);
+    }
+
+    // حذف صفرهای ابتدایی هر بخش (به جز بخش اول که ممکن است صفر باشد)
+    const cleanedParts = parts.map((part, index) => {
+        if (index === 0) return part; // بخش اول را بدون تغییر نگه دار
+        return part.replace(/^0+/, '') || '0';
+    });
+
+    return cleanedParts.join('-');
+};
+
 // کش داده‌های ویژگی‌ها و هندل های لایه
 const featuresCache = new Map<string, any>();
-const layerMap = new Map<string, any>(); // برای ذخیره لایه هر feature
+const layerMap = new Map<string, any>();
 
 interface NosaziLayerProps {
     onLoadingChange?: (isLoading: boolean) => void;
@@ -88,18 +148,193 @@ export default function NosaziLayer({ onLoadingChange }: NosaziLayerProps) {
         });
     }, []);
 
+    // تابع utf8ToBase64 برای ارسال داده به سرور (مشابه SearchBox2)
+    const utf8ToBase64 = (str: string): string => {
+        const bytes = new TextEncoder().encode(str);
+        let binary = '';
+        bytes.forEach(b => binary += String.fromCharCode(b));
+        return btoa(binary);
+    };
+
+    // تابع اصلی استخراج اطلاعات از ویژگی‌های لایه
     const extractFeatureInfo = (feature: any) => {
         const props = feature.properties || {};
-        return {
-            nosaziCode: props.name || props.Code_nosaz || props.code || "کد نوسازی موجود نیست",
-            address: props.address || props.full_address || "آدرس موجود نیست",
-            billId: props.bill_id || props.BillId || Math.floor(Math.random() * 10000000000000).toString(),
-            paymentId: props.payment_id || props.PaymentId || Math.floor(Math.random() * 1000000000000).toString(),
-            amount: props.amount || 0,
-            ownerName: props.owner_name || props.OwnerName || "نامشخص",
-            area: props.area || props.Area || "نامشخص",
-            geometry: feature.geometry // ذخیره geometry برای زوم
+
+        // دریافت کد نوسازی (ممکن است با فرمت‌های مختلف بیاید)
+        let rawCode = "کد نوسازی موجود نیست";
+        if (props.name && props.name !== "0" && props.name !== "") {
+            rawCode = props.name;
+            console.log('Found name:', rawCode);
+        } else if (props.Code_nosaz && props.Code_nosaz !== "0" && props.Code_nosaz !== "") {
+            rawCode = props.Code_nosaz;
+            console.log('Found Code_nosaz:', rawCode);
+        } else if (props.code && props.code !== "0" && props.code !== "") {
+            rawCode = props.code;
+            console.log('Found code:', rawCode);
+        } else if (props.codeN && props.codeN !== "0" && props.codeN !== "") {
+            rawCode = props.codeN;
+            console.log('Found codeN:', rawCode);
+        } else if (props.Code && props.Code !== "0" && props.Code !== "") {
+            rawCode = props.Code;
+            console.log('Found Code:', rawCode);
+        }
+
+        // فرمت کردن کد برای نمایش
+        const formattedCode = formatCodeForDisplay(rawCode);
+
+        // بررسی نام‌های مختلف برای فیلد آدرس
+        let address = "آدرس موجود نیست";
+        if (props.neshani_melk && props.neshani_melk !== "0" && props.neshani_melk !== "") {
+            address = props.neshani_melk;
+        } else if (props.address && props.address !== "0" && props.address !== "") {
+            address = props.address;
+        } else if (props.full_address && props.full_address !== "0" && props.full_address !== "") {
+            address = props.full_address;
+        } else if (props.Address && props.Address !== "0" && props.Address !== "") {
+            address = props.Address;
+        }
+
+        // بررسی نام‌های مختلف برای فیلد مالک
+        let ownerName = "نامشخص";
+        if (props.Name_Malek && props.Name_Malek !== "0" && props.Name_Malek !== "" && props.Name_Malek !== "null") {
+            ownerName = props.Name_Malek;
+        } else if (props.owner_name && props.owner_name !== "0" && props.owner_name !== "" && props.owner_name !== "null") {
+            ownerName = props.owner_name;
+        } else if (props.OwnerName && props.OwnerName !== "0" && props.OwnerName !== "" && props.OwnerName !== "null") {
+            ownerName = props.OwnerName;
+        } else if (props.malek && props.malek !== "0" && props.malek !== "" && props.malek !== "null") {
+            ownerName = props.malek;
+        } else if (props.Malek && props.Malek !== "0" && props.Malek !== "" && props.Malek !== "null") {
+            ownerName = props.Malek;
+        } else if (props.name_malek && props.name_malek !== "0" && props.name_malek !== "" && props.name_malek !== "null") {
+            ownerName = props.name_malek;
+        }
+
+        // بررسی نام‌های مختلف برای فیلد مساحت
+        let area = "نامشخص";
+        if (props.MasahatZamin && props.MasahatZamin !== "0" && props.MasahatZamin !== "") {
+            area = props.MasahatZamin.toString();
+        } else if (props.area && props.area !== "0" && props.area !== "") {
+            area = props.area;
+        } else if (props.Area && props.Area !== "0" && props.Area !== "") {
+            area = props.Area;
+        } else if (props.masahat && props.masahat !== "0" && props.masahat !== "") {
+            area = props.masahat;
+        }
+
+        // بررسی نام‌های مختلف برای فیلد سال ساخت
+        let constructionYear = "نامشخص";
+        if (props.Tabaghe && props.Tabaghe !== "0" && props.Tabaghe !== "") {
+            constructionYear = props.Tabaghe;
+        } else if (props.construction_year && props.construction_year !== "0" && props.construction_year !== "") {
+            constructionYear = props.construction_year;
+        } else if (props.sale_sakht && props.sale_sakht !== "0" && props.sale_sakht !== "") {
+            constructionYear = props.sale_sakht;
+        } else if (props.Year && props.Year !== "0" && props.Year !== "") {
+            constructionYear = props.Year;
+        }
+
+        // بررسی نام‌های مختلف برای فیلد مبلغ
+        let amount = 0;
+        if (props.Nmablagh && props.Nmablagh !== "0" && props.Nmablagh !== "") {
+            amount = Number(props.Nmablagh);
+        } else if (props.amount && props.amount !== "0" && props.amount !== "") {
+            amount = Number(props.amount);
+        } else if (props.Amount && props.Amount !== "0" && props.Amount !== "") {
+            amount = Number(props.Amount);
+        } else if (props.mablagh && props.mablagh !== "0" && props.mablagh !== "") {
+            amount = Number(props.mablagh);
+        }
+
+        // بررسی نام‌های مختلف برای فیلد شناسه قبض
+        let billId = undefined;
+        if (props.NShenaseGhabz && props.NShenaseGhabz !== "0" && props.NShenaseGhabz !== "") {
+            billId = props.NShenaseGhabz;
+        } else if (props.billId && props.billId !== "0" && props.billId !== "") {
+            billId = props.billId;
+        } else if (props.BillId && props.BillId !== "0" && props.BillId !== "") {
+            billId = props.BillId;
+        } else if (props.shenase_ghabz && props.shenase_ghabz !== "0" && props.shenase_ghabz !== "") {
+            billId = props.shenase_ghabz;
+        }
+
+        // بررسی نام‌های مختلف برای فیلد شناسه پرداخت
+        let paymentId = undefined;
+        if (props.NShenasePardakht && props.NShenasePardakht !== "0" && props.NShenasePardakht !== "") {
+            paymentId = props.NShenasePardakht;
+        } else if (props.paymentId && props.paymentId !== "0" && props.paymentId !== "") {
+            paymentId = props.paymentId;
+        } else if (props.PaymentId && props.PaymentId !== "0" && props.PaymentId !== "") {
+            paymentId = props.PaymentId;
+        } else if (props.shenase_pardakht && props.shenase_pardakht !== "0" && props.shenase_pardakht !== "") {
+            paymentId = props.shenase_pardakht;
+        }
+
+        const result = {
+            nosaziCode: formattedCode,
+            rawCode: rawCode,
+            address: address,
+            billId: billId,
+            paymentId: paymentId,
+            amount: amount,
+            ownerName: ownerName,
+            area: area,
+            constructionYear: constructionYear,
+            geometry: feature.geometry
         };
+
+        console.log('Extracted feature info:', result);
+        return result;
+    };
+
+    // تابع جستجوی اطلاعات ملک از سرور (مشابه SearchBox2)
+    const fetchPropertyDetails = async (code: string) => {
+        try {
+            const formattedCode = formatCodeForServer(code);
+            const base64Data = utf8ToBase64(formattedCode);
+            const url = `/api/AmardDataHandler.ashx?data=${encodeURIComponent(base64Data)}`;
+
+            console.log('=== Fetching property details ===');
+            console.log('Raw code:', code);
+            console.log('Formatted code:', formattedCode);
+            console.log('URL:', url);
+
+            const response = await fetch(url);
+            const responseText = await response.text();
+
+            const lines = responseText.split(/\r?\n/);
+            if (lines.length < 2) return null;
+
+            const encodedText = lines[1].trim();
+            const binaryString = atob(encodedText);
+            const bytes = Uint8Array.from(binaryString, c => c.charCodeAt(0));
+            const decodedText = new TextDecoder('utf-8').decode(bytes);
+            const apiData = JSON.parse(decodedText);
+
+            if (!Array.isArray(apiData) || apiData.length === 0) return null;
+
+            // پیدا کردن آیتمی که Name_Malek دارد یا code_tree !== 0
+            const validItem = apiData.find(item => item.code_tree !== 0 && item.code_tree !== null && item.Name_Malek) ||
+                apiData.find(item => item.code_tree !== 0 && item.code_tree !== null) ||
+                apiData[0];
+
+            if (validItem && validItem.Name_Malek) {
+                return {
+                    code: validItem.codeN || formattedCode,
+                    address: validItem.neshani_melk || 'آدرس ثبت نشده',
+                    billId: validItem.NShenaseGhabz,
+                    paymentId: validItem.NShenasePardakht,
+                    amount: validItem.Nmablagh ? Number(validItem.Nmablagh) : undefined,
+                    ownerName: validItem.Name_Malek || "نامشخص",
+                    area: validItem.MasahatZamin?.toString(),
+                    constructionYear: validItem.Tabaghe,
+                };
+            }
+            return null;
+        } catch (error) {
+            console.error('Error fetching property details:', error);
+            return null;
+        }
     };
 
     // تابع زوم روی یک feature خاص
@@ -109,7 +344,6 @@ export default function NosaziLayer({ onLoadingChange }: NosaziLayerProps) {
         setIsZooming(true);
 
         try {
-            // استخراج مختصات از geometry
             let coordinates = null;
             if (featureInfo.geometry.type === 'Polygon') {
                 coordinates = featureInfo.geometry.coordinates[0];
@@ -118,15 +352,12 @@ export default function NosaziLayer({ onLoadingChange }: NosaziLayerProps) {
             }
 
             if (coordinates && coordinates.length > 0) {
-                // تبدیل به فرمت Leaflet
                 const latLngs = coordinates.map((coord: number[]) => [coord[1], coord[0]]);
                 const bounds = L.latLngBounds(latLngs);
-
-                // زوم روی bounds با padding
                 map.fitBounds(bounds, {
                     padding: [50, 50],
                     maxZoom: 20,
-                    duration: 0.5 // انیمیشن زوم
+                    duration: 0.5
                 });
             }
         } catch (error) {
@@ -136,24 +367,29 @@ export default function NosaziLayer({ onLoadingChange }: NosaziLayerProps) {
         }
     };
 
-    const handleFeatureClick = (info: any, shouldZoom: boolean = true) => {
+    const handleFeatureClick = async (info: any, shouldZoom: boolean = true) => {
+        // ابتدا سعی کن اطلاعات دقیق را از API اصلی بگیر (مشابه SearchBox2)
+        let detailedData = null;
+        if (info.rawCode && info.rawCode !== "کد نوسازی موجود نیست") {
+            detailedData = await fetchPropertyDetails(info.rawCode);
+        }
+
         const modalData = {
-            code: info.nosaziCode,
-            address: info.address,
-            billId: info.billId,
-            paymentId: info.paymentId,
-            amount: info.amount,
-            ownerName: info.ownerName,
-            area: info.area
+            code: detailedData?.code || info.nosaziCode,
+            address: detailedData?.address || info.address,
+            billId: detailedData?.billId || info.billId,
+            paymentId: detailedData?.paymentId || info.paymentId,
+            amount: detailedData?.amount || info.amount,
+            ownerName: detailedData?.ownerName || info.ownerName,
+            area: detailedData?.area || info.area,
+            constructionYear: detailedData?.constructionYear || info.constructionYear
         };
 
         setSelectedNosazi(modalData);
         setIsModalOpen(true);
         updateParam(info.nosaziCode);
 
-        // زوم روی ملک فقط زمانی که مودال باز می‌شه
         if (shouldZoom) {
-            // کمی تاخیر برای اطمینان از باز شدن مودال
             setTimeout(() => {
                 zoomToFeature(info);
             }, 100);
@@ -166,16 +402,13 @@ export default function NosaziLayer({ onLoadingChange }: NosaziLayerProps) {
         updateParam(null);
     };
 
-    // تابع هایلایت کردن feature
     const highlightFeature = (nosaziCode: string) => {
-        // ریست کردن هایلایت قبلی
         layerMap.forEach((layer, code) => {
             if (layer && layer.setStyle) {
                 layer.setStyle({ color: '#0d6efd', weight: 1 });
             }
         });
 
-        // هایلایت feature جدید
         const layer = layerMap.get(nosaziCode);
         if (layer && layer.setStyle) {
             layer.setStyle({ color: '#ff0000', weight: 3 });
@@ -256,7 +489,6 @@ export default function NosaziLayer({ onLoadingChange }: NosaziLayerProps) {
                     });
 
                     layer.on('mouseout', () => {
-                        // فقط اگر هایلایت نشده باشه رنگ رو برگردون
                         if (selectedNosazi?.code !== info.nosaziCode) {
                             layer.setStyle({ color: '#0d6efd', weight: 1 });
                         }
@@ -280,7 +512,6 @@ export default function NosaziLayer({ onLoadingChange }: NosaziLayerProps) {
                 }
             }).addTo(map);
 
-            // اگر از URL کد نوسازی داریم و مودال باز نیست
             if (urlPointValue && !isModalOpenRef.current && featuresCache.has(urlPointValue)) {
                 setTimeout(() => {
                     if (!isModalOpenRef.current && featuresCache.has(urlPointValue)) {
