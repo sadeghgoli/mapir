@@ -1,8 +1,8 @@
 // app/contexts/AuthContext.tsx
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 interface User {
     id: string;
@@ -15,281 +15,273 @@ interface User {
 interface AuthContextType {
     user: User | null;
     accessToken: string | null;
-    isAuthenticated: boolean;
     isLoading: boolean;
+    isAuthenticated: boolean;
     login: () => Promise<void>;
     logout: () => Promise<void>;
-    refreshToken: () => Promise<string | null>;
-    apiRequest: <T = any>(url: string, options?: RequestInit) => Promise<T>;
-    updateUser: (user: User | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const API_BASE = 'https://apiweb-payonmap.sabzevar.ir:8446/api/Auth';
+const API_BASE_URL = 'https://apiweb-payonmap.sabzevar.ir:8446';
 
-// کلید برای ذخیره در sessionStorage
-const POPUP_STATE_KEY = 'loginPopupState';
-const POLLING_INTERVAL = 500; // میلی‌ثانیه
-
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-    const router = useRouter();
+export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [accessToken, setAccessToken] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [popup, setPopup] = useState<Window | null>(null);
+    const router = useRouter();
+    const searchParams = useSearchParams();
 
-    // به‌روزرسانی اطلاعات کاربر
-    const updateUser = (userData: User | null) => {
+    // ذخیره اطلاعات
+    const saveAuthData = useCallback((token: string, userData: User) => {
+        console.log('💾 Saving auth data:', userData);
+        setAccessToken(token);
         setUser(userData);
-    };
+        localStorage.setItem('accessToken', token);
+        localStorage.setItem('user', JSON.stringify(userData));
+    }, []);
 
-    // دریافت اطلاعات کاربر فعلی با توکن
-    const fetchCurrentUser = async (token: string): Promise<User | null> => {
+    // پاک کردن اطلاعات
+    const clearAuthData = useCallback(() => {
+        setAccessToken(null);
+        setUser(null);
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('user');
+    }, []);
+
+    // دریافت اطلاعات کاربر با توکن
+    const fetchUserInfo = useCallback(async (token: string): Promise<User | null> => {
         try {
-            const res = await fetch(`${API_BASE}/me`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (res.ok) return await res.json();
-            if (res.status === 401) return null;
-            return null;
-        } catch {
-            return null;
-        }
-    };
-
-    // پردازش موفقیت‌آمیز لاگین
-    const handleLoginSuccess = async (newToken: string, userData?: User) => {
-        setAccessToken(newToken);
-        localStorage.setItem('accessToken', newToken);
-
-        if (userData) {
-            setUser(userData);
-        } else {
-            // اگر userData ارسال نشده، آن را fetch کنید
-            const fetchedUser = await fetchCurrentUser(newToken);
-            if (fetchedUser) {
-                setUser(fetchedUser);
-            }
-        }
-
-        setPopup(null);
-        sessionStorage.removeItem(POPUP_STATE_KEY);
-
-        // رفرش صفحه برای به‌روزرسانی UI
-        router.refresh();
-    };
-
-    // شروع فرآیند لاگین و دریافت URL
-    const initiateLogin = async () => {
-        const res = await fetch(`${API_BASE}/login`);
-        if (!res.ok) throw new Error('خطا در شروع فرآیند ورود');
-        const { loginUrl, state } = await res.json();
-        sessionStorage.setItem('loginState', state);
-        sessionStorage.setItem(POPUP_STATE_KEY, state);
-        return loginUrl;
-    };
-
-    // متد لاگین با Popup
-    const login = async () => {
-        try {
-            // بررسی اگر popup از قبل باز است
-            if (popup && !popup.closed) {
-                popup.focus();
-                return;
-            }
-
-            const loginUrl = await initiateLogin();
-
-            // محاسبه موقعیت popup در مرکز صفحه
-            const width = 600;
-            const height = 700;
-            const left = window.screenX + (window.innerWidth - width) / 2;
-            const top = window.screenY + (window.innerHeight - height) / 2;
-
-            // باز کردن popup
-            const popupWindow = window.open(
-                loginUrl,
-                'oauth2-login',
-                `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,toolbar=no,menubar=no,location=yes,status=yes`
-            );
-
-            if (!popupWindow) {
-                // اگر popup مسدود شده باشد، fallback به ریدایرکت معمولی
-                window.location.href = loginUrl;
-                return;
-            }
-
-            setPopup(popupWindow);
-
-            // شروع بررسی وضعیت popup
-            const checkPopupClosed = setInterval(() => {
-                if (popupWindow.closed) {
-                    clearInterval(checkPopupClosed);
-                    setPopup(null);
-                    sessionStorage.removeItem(POPUP_STATE_KEY);
-                }
-            }, 500);
-
-        } catch (error) {
-            console.error('Login initiation failed:', error);
-        }
-    };
-
-    // رفرش توکن
-    const refreshToken = async (): Promise<string | null> => {
-        try {
-            const res = await fetch(`${API_BASE}/refresh`, {
-                method: 'POST',
-                credentials: 'include',
-            });
-            if (!res.ok) return null;
-            const data = await res.json();
-            setAccessToken(data.accessToken);
-            localStorage.setItem('accessToken', data.accessToken);
-            return data.accessToken;
-        } catch {
-            return null;
-        }
-    };
-
-    // درخواست API با مدیریت خودکار توکن
-    const apiRequest = async <T = any>(
-        url: string,
-        options: RequestInit = {}
-    ): Promise<T> => {
-        let token = accessToken;
-
-        const makeRequest = async (retry = true): Promise<T> => {
-            const res = await fetch(url, {
-                ...options,
+            console.log('📡 Fetching user info...');
+            const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
                 headers: {
-                    ...options.headers,
-                    Authorization: `Bearer ${token}`,
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
                 },
             });
 
-            if (res.status === 401 && retry && token) {
-                const newToken = await refreshToken();
-                if (newToken) {
-                    token = newToken;
-                    return makeRequest(false);
+            if (response.ok) {
+                const userData = await response.json();
+                console.log('✅ User info received:', userData);
+                return userData;
+            } else {
+                console.error('Failed to fetch user info:', response.status);
+                return null;
+            }
+        } catch (error) {
+            console.error('Error fetching user info:', error);
+            return null;
+        }
+    }, []);
+
+    // تابع لاگین
+    const login = useCallback(async () => {
+        try {
+            setIsLoading(true);
+            console.log('🔐 Starting login process...');
+
+            const response = await fetch(`${API_BASE_URL}/api/auth/login`);
+            const data = await response.json();
+
+            if (data.loginUrl) {
+                // باز کردن پنجره پاپ‌آپ
+                const popup = window.open(data.loginUrl, '_blank', 'width=800,height=600');
+                if (!popup) {
+                    alert('لطفا پاپ‌آپ را در مرورگر خود فعال کنید');
                 }
             }
+        } catch (error) {
+            console.error('Login error:', error);
+            alert('خطا در اتصال به سرور');
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
 
-            if (!res.ok) {
-                throw new Error(`Request failed with status ${res.status}`);
-            }
-            return res.json();
-        };
-
-        return makeRequest();
-    };
-
-    // خروج از حساب کاربری
-    const logout = async () => {
+    // تابع خروج
+    const logout = useCallback(async () => {
         try {
             if (accessToken) {
-                await fetch(`${API_BASE}/logout`, {
+                await fetch(`${API_BASE_URL}/api/auth/logout`, {
                     method: 'POST',
-                    headers: { Authorization: `Bearer ${accessToken}` },
-                    credentials: 'include',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                    },
                 });
             }
         } catch (error) {
             console.error('Logout error:', error);
         } finally {
-            localStorage.removeItem('accessToken');
-            setAccessToken(null);
-            setUser(null);
+            clearAuthData();
             router.push('/');
         }
-    };
+    }, [accessToken, clearAuthData, router]);
 
-    // گوش دادن به پیام‌های دریافتی از popup
+    // بررسی و تکمیل اطلاعات کاربر بعد از لاگین
+    const handleLoginSuccess = useCallback(async () => {
+        const storedToken = localStorage.getItem('accessToken');
+        const storedUser = localStorage.getItem('user');
+
+        if (storedToken && storedUser) {
+            // اطلاعات کامل وجود دارد
+            try {
+                setAccessToken(storedToken);
+                setUser(JSON.parse(storedUser));
+                console.log('✅ Loaded stored user');
+                return true;
+            } catch (e) {
+                console.error('Error loading user:', e);
+                localStorage.removeItem('user');
+            }
+        }
+
+        if (storedToken && !storedUser) {
+            // فقط توکن وجود دارد، باید اطلاعات کاربر را دریافت کنیم
+            console.log('🔄 Token exists but no user data, fetching...');
+            const userData = await fetchUserInfo(storedToken);
+            if (userData) {
+                saveAuthData(storedToken, userData);
+                return true;
+            } else {
+                // توکن نامعتبر است
+                clearAuthData();
+                return false;
+            }
+        }
+
+        return false;
+    }, [fetchUserInfo, saveAuthData, clearAuthData]);
+
+    // گوش دادن به پیام‌های پنجره پاپ‌آپ
     useEffect(() => {
         const handleMessage = async (event: MessageEvent) => {
-            // بررسی منبع برای امنیت
-            if (event.origin !== window.location.origin) return;
+            // بررسی امنیت - اوریجین سرور خود را بررسی کنید
+            // if (event.origin !== API_BASE_URL) return;
 
-            if (event.data.type === 'LOGIN_SUCCESS') {
-                const { accessToken: newToken, user: userData } = event.data;
-                if (newToken) {
-                    await handleLoginSuccess(newToken, userData);
+            const { type, token, user: userData } = event.data;
+
+            if (type === 'LOGIN_SUCCESS' && token) {
+                console.log('📨 Received login success message');
+
+                if (userData) {
+                    // اطلاعات کاربر مستقیم از پاپ‌آپ آمده
+                    saveAuthData(token, userData);
+                } else {
+                    // فقط توکن آمده، باید اطلاعات کاربر را بگیریم
+                    const userInfo = await fetchUserInfo(token);
+                    if (userInfo) {
+                        saveAuthData(token, userInfo);
+                    } else {
+                        console.error('Failed to fetch user info after login');
+                        return;
+                    }
                 }
-            }
 
-            if (event.data.type === 'LOGIN_ERROR') {
-                console.error('Login error from popup:', event.data.error);
-                setPopup(null);
-                sessionStorage.removeItem(POPUP_STATE_KEY);
+                // پاک کردن پارامترهای URL
+                const newUrl = window.location.pathname;
+                window.history.replaceState({}, '', newUrl);
+
+                // رفرش صفحه یا هدایت به داشبورد
+                router.refresh();
+                router.push('/dashboard');
             }
         };
 
         window.addEventListener('message', handleMessage);
+        return () => window.removeEventListener('message', handleMessage);
+    }, [fetchUserInfo, saveAuthData, router]);
 
-        return () => {
-            window.removeEventListener('message', handleMessage);
-        };
-    }, []);
-
-    // بارگذاری اطلاعات کاربر در شروع برنامه
+    // بررسی اولیه و مدیریت پارامترهای URL
     useEffect(() => {
-        const loadUser = async () => {
-            const storedToken = localStorage.getItem('accessToken');
-            if (storedToken) {
-                setAccessToken(storedToken);
-                const userData = await fetchCurrentUser(storedToken);
-                if (userData) {
-                    setUser(userData);
+        const initAuth = async () => {
+            setIsLoading(true);
+
+            // چک کردن پارامتر login=success در URL
+            const loginParam = searchParams.get('login');
+            const tokenFromUrl = searchParams.get('token');
+
+            if (loginParam === 'success' || tokenFromUrl) {
+                console.log('🔍 Login success detected in URL');
+
+                // پاک کردن پارامتر از URL بدون رفرش
+                const newUrl = window.location.pathname;
+                window.history.replaceState({}, '', newUrl);
+
+                if (tokenFromUrl) {
+                    // توکن در URL است
+                    const userInfo = await fetchUserInfo(tokenFromUrl);
+                    if (userInfo) {
+                        saveAuthData(tokenFromUrl, userInfo);
+                        router.push('/dashboard');
+                    }
                 } else {
-                    // توکن نامعتبر
-                    localStorage.removeItem('accessToken');
-                    setAccessToken(null);
+                    // بررسی localStorage
+                    const success = await handleLoginSuccess();
+                    if (success) {
+                        router.push('/dashboard');
+                    }
+                }
+            } else {
+                // بارگذاری عادی اطلاعات ذخیره شده
+                const storedToken = localStorage.getItem('accessToken');
+                const storedUser = localStorage.getItem('user');
+
+                if (storedToken && storedUser) {
+                    try {
+                        setAccessToken(storedToken);
+                        setUser(JSON.parse(storedUser));
+                        console.log('✅ Loaded stored user');
+                    } catch (e) {
+                        console.error('Error loading user:', e);
+                        clearAuthData();
+                    }
                 }
             }
+
             setIsLoading(false);
         };
-        loadUser();
-    }, []);
 
-    // بررسی باز بودن popup در فواصل زمانی
+        initAuth();
+    }, [searchParams, fetchUserInfo, saveAuthData, clearAuthData, handleLoginSuccess, router]);
+
+    // بررسی اعتبار توکن در بازه‌های زمانی (اختیاری)
     useEffect(() => {
-        if (!popup) return;
+        if (!accessToken) return;
 
-        const checkPopupClosed = setInterval(() => {
-            if (popup.closed) {
-                setPopup(null);
-                sessionStorage.removeItem(POPUP_STATE_KEY);
+        const validateToken = async () => {
+            const userInfo = await fetchUserInfo(accessToken);
+            if (!userInfo) {
+                console.log('⚠️ Token invalid, logging out...');
+                await logout();
             }
-        }, 500);
+        };
 
-        return () => clearInterval(checkPopupClosed);
-    }, [popup]);
+        // هر 5 دقیقه یکبار بررسی شود
+        const interval = setInterval(validateToken, 5 * 60 * 1000);
+
+        return () => clearInterval(interval);
+    }, [accessToken, fetchUserInfo, logout]);
 
     return (
         <AuthContext.Provider
             value={{
                 user,
                 accessToken,
-                isAuthenticated: !!user,
                 isLoading,
+                isAuthenticated: !!accessToken && !!user,
                 login,
                 logout,
-                refreshToken,
-                apiRequest,
-                updateUser,
             }}
         >
             {children}
         </AuthContext.Provider>
     );
-};
+}
 
-export const useAuth = () => {
+export function useAuth() {
     const context = useContext(AuthContext);
     if (context === undefined) {
         throw new Error('useAuth must be used within an AuthProvider');
     }
     return context;
-};
+}

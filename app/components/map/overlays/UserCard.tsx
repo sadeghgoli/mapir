@@ -1,46 +1,69 @@
 // app/components/map/UserCard.tsx
 'use client';
 
+import { useAuth } from '@/app/contexts/AuthContext';
 import ProfileModal from './ProfileModal';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Tooltip } from 'react-tooltip';
-import { useSSO } from '../../../hooks/useSSO'; // مسیر relative یا absolute مناسب
 
 export default function UserCard() {
-    const { login, logout, isLoading, isLoggedIn, user, error } = useSSO();
+    const { user, login, isLoading, isAuthenticated } = useAuth();
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+        console.log('UserCard - user:', user, 'isAuthenticated:', isAuthenticated);
+    }, [user, isAuthenticated]);
 
     const handleClick = () => {
-        if (!isLoggedIn) {
+        if (!user && !isAuthenticated) {
             login();
         } else {
             setIsModalOpen(true);
         }
     };
 
-    const handleLogout = () => {
-        logout();
-        setIsModalOpen(false); // بستن مودال بعد از خروج
+    if (!mounted) {
+        return (
+            <div className="absolute top-12 left-8 z-[1000]">
+                <div className="flex items-center gap-3">
+                    <div className="bg-cyan-800 text-white rounded-lg px-2 h-12 shadow-xl flex items-center gap-4">
+                        <div className="md:w-10 md:h-10 w-8 h-8 rounded-full bg-white/30 flex items-center justify-center">
+                            <img src="/images/solar_user-circle-bold-duotone.png" alt="user-icon" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    const displayName = () => {
+        if (isLoading) return 'در حال بارگذاری...';
+        if (user?.name) return user.name;
+        return 'ورود به حساب';
+    };
+
+    const displayPhone = () => {
+        if (isLoading) return '';
+        if (user?.phone) return user.phone;
+        return '-';
     };
 
     return (
         <div className="absolute top-12 left-8 z-[1000]">
             <div className="flex items-center gap-3">
                 <div
-                    onClick={isLoading ? '' : handleClick}
+                    onClick={handleClick}
                     className="bg-cyan-800 text-white rounded-lg px-2 h-12 shadow-xl flex items-center gap-4 cursor-pointer hover:bg-cyan-900 transition-colors"
                 >
                     <div className="md:w-10 md:h-10 w-8 h-8 rounded-full bg-white/30 flex items-center justify-center">
                         <img src="/images/solar_user-circle-bold-duotone.png" alt="user-icon" />
                     </div>
                     <div className="hidden md:block">
-                        <div className="text-sm font-medium">
-                            {isLoading ? 'در حال بارگذاری...' : (isLoggedIn && user ? user.name : 'ورود به حساب')}
-                        </div>
-                        <div className="text-xs opacity-80">
-                            {isLoggedIn && user ? (user.phone || '-') : '-'}
-                        </div>
+                        <div className="text-sm font-medium">{displayName()}</div>
+                        <div className="text-xs opacity-80">{displayPhone()}</div>
                     </div>
                 </div>
 
@@ -66,13 +89,7 @@ export default function UserCard() {
                 />
             </div>
 
-            {/* پاس دادن تابع logout به ProfileModal در صورت نیاز */}
-            <ProfileModal
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
-                onLogout={handleLogout}
-                user={user}
-            />
+            <ProfileModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
         </div>
     );
 }
