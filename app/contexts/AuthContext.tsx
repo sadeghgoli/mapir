@@ -21,10 +21,6 @@ interface AuthContextType {
     logout: () => Promise<void>;
 }
 
-// اضافه کردن تایپ برای پنجره پاپ‌آپ
-let popupWindow: Window | null = null;
-let popupInterval: NodeJS.Timeout | null = null;
-
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const API_BASE_URL = 'https://apiweb-payonmap.sabzevar.ir:8446';
@@ -52,7 +48,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [mounted, setMounted] = useState(false);
     const router = useRouter();
     const searchParams = useSearchParams();
-
 
     // ذخیره اطلاعات
     const saveAuthData = useCallback((token: string, userData: User) => {
@@ -96,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
-    // تابع لاگین
+    // تابع لاگین - تغییر یافته به هدایت در صفحه فعلی
     const login = useCallback(async () => {
         try {
             setIsLoading(true);
@@ -104,18 +99,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             const response = await fetch(`${API_BASE_URL}/api/auth/login`);
             const data = await response.json();
-            console.log(data)
+            console.log(data);
+
             if (data.loginUrl) {
-                // باز کردن پنجره پاپ‌آپ
-                const popup = window.open(data.loginUrl, '_blank', 'width=800,height=600');
-                if (!popup) {
-                    alert('لطفا پاپ‌آپ را در مرورگر خود فعال کنید');
-                }
+                // ایجاد state برای جلوگیری از CSRF
+                const state = Math.random().toString(36).substring(2);
+                sessionStorage.setItem('loginState', state);
+
+                // اضافه کردن state به URL اگر سرور پشتیبانی می‌کند
+                const loginUrl = new URL(data.loginUrl);
+                loginUrl.searchParams.append('state', state);
+                loginUrl.searchParams.append('redirect_uri', `${window.location.origin}/auth/callback`);
+
+                // هدایت در همان صفحه (بدون پاپ‌آپ)
+                window.location.href = loginUrl.toString();
             }
         } catch (error) {
             console.error('Login error:', error);
             alert('خطا در اتصال به سرور');
-        } finally {
             setIsLoading(false);
         }
     }, []);
@@ -174,99 +175,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return false;
     }, [fetchUserInfo, saveAuthData, clearAuthData]);
 
-    // گوش دادن به پیام‌های پنجره پاپ‌آپ
-    useEffect(() => {
-        if (!mounted) return;
-
-        const handleMessage = async (event: MessageEvent) => {
-            // بررسی امنیت - اوریجین سرور خود را بررسی کنید
-            // if (event.origin !== API_BASE_URL) return;
-
-            const { type, token, user: userData } = event.data;
-
-            if (type === 'LOGIN_SUCCESS' && token) {
-                console.log('📨 Received login success message');
-
-                if (userData) {
-                    // اطلاعات کاربر مستقیم از پاپ‌آپ آمده
-                    saveAuthData(token, userData);
-                } else {
-                    // فقط توکن آمده، باید اطلاعات کاربر را بگیریم
-                    const userInfo = await fetchUserInfo(token);
-                    if (userInfo) {
-                        saveAuthData(token, userInfo);
-                    } else {
-                        console.error('Failed to fetch user info after login');
-                        return;
-                    }
-                }
-
-                // پاک کردن پارامترهای URL
-                const newUrl = window.location.pathname;
-                window.history.replaceState({}, '', newUrl);
-
-                // رفرش صفحه یا هدایت به داشبورد
-                router.refresh();
-                router.push('/dashboard');
-            }
-        };
-
-        window.addEventListener('message', handleMessage);
-        return () => window.removeEventListener('message', handleMessage);
-    }, [fetchUserInfo, saveAuthData, router, mounted]);
+    // حذف تابع handleMessage چون دیگر نیازی به ارتباط با پاپ‌آپ نیست
+    // دیگر نیازی به event listener برای message نداریم
 
     // بررسی اولیه و مدیریت پارامترهای URL
     useEffect(() => {
-        console.log('🔍 TOKEN:', accessToken);
-        console.log('🔍 Current Browser URL:', window.location.href);
         if (!mounted) return;
 
         const initAuth = async () => {
             setIsLoading(true);
 
-            // چک کردن پارامتر login=success در URL
-            const loginParam = searchParams.get('login');
-            const tokenFromUrl = searchParams.get('token');
+            // بررسی توکن در localStorage
+            const storedToken = getLocalStorage('token');
+            const storedUser = getLocalStorage('user');
 
-            console.log(loginParam)
-
-
-            if (loginParam === 'success' || tokenFromUrl) {
-                console.log('🔍 Login success detected in URL');
-
-                // پاک کردن پارامتر از URL بدون رفرش
-                const newUrl = window.location.pathname;
-                // window.history.replaceState({}, '', newUrl);
-                router.replace(window.location.pathname, { scroll: false });
-
-                if (tokenFromUrl) {
-                    // توکن در URL است
-                    const userInfo = await fetchUserInfo(tokenFromUrl);
-                    if (userInfo) {
-                        saveAuthData(tokenFromUrl, userInfo);
-                        router.push('/dashboard');
-                    }
-                } else {
-                    // بررسی localStorage
-                    const success = await handleLoginSuccess();
-                    if (success) {
-                        router.push('/dashboard');
-                    }
+            if (storedToken && storedUser) {
+                try {
+                    setAccessToken(storedToken);
+                    setUser(JSON.parse(storedUser));
+                    console.log('✅ Loaded stored user');
+                } catch (e) {
+                    console.error('Error loading user:', e);
+                    clearAuthData();
                 }
-            } else {
-                // بارگذاری عادی اطلاعات ذخیره شده
-                const storedToken = getLocalStorage('token');
-                const storedUser = getLocalStorage('user');
-
-                if (storedToken && storedUser) {
-                    try {
-                        setAccessToken(storedToken);
-                        setUser(JSON.parse(storedUser));
-                        console.log('✅ Loaded stored user');
-                    } catch (e) {
-                        console.error('Error loading user:', e);
-                        clearAuthData();
-                    }
+            } else if (storedToken && !storedUser) {
+                // فقط توکن وجود دارد، دریافت اطلاعات کاربر
+                const userInfo = await fetchUserInfo(storedToken);
+                if (userInfo) {
+                    saveAuthData(storedToken, userInfo);
+                } else {
+                    clearAuthData();
                 }
             }
 
@@ -274,7 +212,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
 
         initAuth();
-    }, [searchParams, fetchUserInfo, saveAuthData, clearAuthData, handleLoginSuccess, router, mounted]);
+    }, [fetchUserInfo, saveAuthData, clearAuthData, mounted]);
 
     // بررسی اعتبار توکن در بازه‌های زمانی (اختیاری)
     useEffect(() => {
