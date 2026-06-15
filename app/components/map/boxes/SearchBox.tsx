@@ -102,20 +102,22 @@ const SearchBox2 = () => {
         }
     };
 
-    // ✅ اصلاح تابع handleKeyDown
     // ✅ اصلاح: تابع handleKeyDown
     const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Backspace' && !values[index] && index > 0) {
+            e.preventDefault();
             inputRefs.current[index - 1]?.focus();
         }
         if (e.key === 'ArrowLeft' && index > 0) {
+            e.preventDefault();
             inputRefs.current[index - 1]?.focus();
         }
         if (e.key === 'ArrowRight' && index < 14) {
+            e.preventDefault();
             inputRefs.current[index + 1]?.focus();
         }
 
-        // ✅ هر جا که - زده شد، برو به اولین خانه گروه بعدی
+        // ✅ خط تیره: رفتن به گروه بعدی
         if (e.key === '-') {
             e.preventDefault();
             const nextGroupStart = getNextGroupFirstIndex(index);
@@ -124,8 +126,29 @@ const SearchBox2 = () => {
             }
         }
 
+        // ✅ Enter:
+        // - اگر در آخرین خانه هستیم یا همه خانه‌ها پر شده → جستجو
+        // - در غیر این صورت → مثل خط تیره عمل کن و به گروه بعدی برو
         if (e.key === 'Enter') {
-            handleSearch();
+            e.preventDefault();
+
+            // بررسی آیا همه خانه‌ها پر شده‌اند
+            const allFilled = values.every(v => v !== '');
+            const isLastField = index === 14;
+
+            if (allFilled || isLastField) {
+                // جستجو
+                handleSearch();
+            } else {
+                // مثل خط تیره عمل کن: برو به اولین خانه گروه بعدی
+                const nextGroupStart = getNextGroupFirstIndex(index);
+                if (nextGroupStart !== null) {
+                    setTimeout(() => inputRefs.current[nextGroupStart]?.focus(), 10);
+                } else {
+                    // اگر گروه بعدی وجود نداشت، به آخرین خانه برو
+                    setTimeout(() => inputRefs.current[14]?.focus(), 10);
+                }
+            }
         }
     };
 
