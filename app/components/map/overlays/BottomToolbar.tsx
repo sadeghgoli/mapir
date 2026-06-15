@@ -23,8 +23,9 @@ export default function BottomToolbar() {
                     items-center
                     justify-center
                     gap-6
-                    h-20
-                    w-96
+                    h-14
+                    w-76
+                    md:w-96
                 "
                 style={{
                     backgroundImage: 'url("/images/footer-back.png")',
@@ -36,7 +37,7 @@ export default function BottomToolbar() {
 
                 <div className="flex gap-2 items-center mt-4">
                     <img src="/images/shahrdari.png" className="w-8" alt=""/>
-                    <p className="text-sm">
+                    <p className="text-[10px] md:text-sm">
                       مدیریت فناوری اطلاعات شهرداری سبزوار
                     </p>
                 </div>
