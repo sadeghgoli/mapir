@@ -22,7 +22,7 @@ export interface UserTokenResponse {
   user: UserInfo;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://apiweb-payonmap.sabzevar.ir:8446/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://apiweb-payonmap.sabzevar.ir:8446';
 
 class AuthService {
   private accessToken: string | null = null;
@@ -84,10 +84,10 @@ class AuthService {
     }
 
     const data: UserTokenResponse = await response.json();
-    
+
     // ذخیره Access Token در localStorage
     this.setAccessToken(data.accessToken);
-    
+
     return data;
   }
 
@@ -158,7 +158,7 @@ class AuthService {
    */
   async logout(): Promise<void> {
     const token = this.getAccessToken();
-    
+
     if (token) {
       try {
         await fetch(`${API_BASE_URL}/api/Auth/logout`, {
@@ -183,7 +183,7 @@ class AuthService {
   isAuthenticated(): boolean {
     const token = this.getAccessToken();
     if (!token) return false;
-    
+
     // بررسی انقضای توکن
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
