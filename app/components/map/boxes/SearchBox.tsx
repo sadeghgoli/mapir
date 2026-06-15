@@ -237,22 +237,22 @@ const SearchBox2 = () => {
         let currentIndex = 0;
         for (const size of groupSizes) {
             const groupValues = values.slice(currentIndex, currentIndex + size).join('');
-            // فقط گروه‌هایی که حداقل یک رقم دارند را اضافه کن
+
             if (groupValues.length > 0) {
-                parts.push(groupValues);
+                // ✅ اضافه کردن صفرهای سمت چپ به اندازه کامل گروه
+                const paddedValue = groupValues.padStart(size, '0');
+                parts.push(paddedValue);
             } else {
-                // اگر گروه خالی بود و هنوز گروه بعدی هم خالی نیست، صفر بفرست
-                // بررسی کنیم آیا گروه‌های بعدی مقدار دارند
-                const remainingValues = values.slice(currentIndex + size).join('');
-                if (remainingValues.length > 0) {
-                    parts.push('0');
-                }
+                // ✅ اگر گروه خالی بود، به اندازه کل گروه صفر بگذار
+                parts.push('0'.repeat(size));
             }
+
             currentIndex += size;
         }
 
         return parts.join('-');
     };
+
     const getFormattedCodeForDisplay = (): string => {
         const groupSizes = [1, 2, 3, 3, 2, 2, 2];
         const parts: string[] = [];

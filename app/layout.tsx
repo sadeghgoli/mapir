@@ -4,8 +4,8 @@ import "./globals.css";
 import { AuthProvider } from "@/app/contexts/AuthContext";
 
 export const metadata: Metadata = {
-    title: "نقشه شهرداری سبزوار",
-    description: "نقشه شهرداری سبزوار",
+    title: "پرداخت الکترونیک عوارض شهرداری سبزوار",
+    description: "پرداخت الکترونیک عوارض شهرداری سبزوار",
 };
 
 export const viewport: Viewport = {
