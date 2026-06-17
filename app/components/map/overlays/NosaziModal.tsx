@@ -31,7 +31,7 @@ interface ApiBuildingUnit {
     codeN: string;
     Name_Malek: string | null;
     neshani_melk: string | null;
-    Tabaghe: string | null;
+    Tabaghe: string | null;  // این فیلد برای عنوان طبقه است
     TedadeVahed: string | null;
     Zirbana: string | null;
     MasahatZamin: string | null;
@@ -54,6 +54,7 @@ interface BuildingUnit {
     codeN: string;
     shop: number;
     sakhteman: number;
+    tabaghe: string | null;  // اضافه کردن فیلد tabaghe
     apar: number;
     area: number;
     nameMalek: string | null;
@@ -285,6 +286,7 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                         codeN: formatCodeN(item.codeN || ''),
                         shop: typeof item.shop === 'number' ? item.shop : 0,
                         sakhteman: extractFloorFromCode(item.codeN || ''),
+                        tabaghe: decodePersianText(item.Tabaghe), // خواندن عنوان طبقه از فیلد Tabaghe
                         apar: extractUnitFromCode(item.codeN || ''),
                         area: typeof item.MasahatZamin === 'number' ? item.MasahatZamin : 0,
                         nameMalek: decodePersianText(item.Name_Malek),
@@ -307,6 +309,7 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                         codeN: formatCodeN(item.codeN || ''),
                         shop: typeof item.shop === 'number' ? item.shop : 0,
                         sakhteman: extractFloorFromCode(item.codeN || ''),
+                        tabaghe: decodePersianText(item.Tabaghe), // خواندن عنوان طبقه از فیلد Tabaghe
                         apar: extractUnitFromCode(item.codeN || ''),
                         area: typeof item.MasahatZamin === 'number' ? item.MasahatZamin : 0,
                         nameMalek: decodePersianText(item.Name_Malek),
@@ -494,21 +497,7 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                 <p className="text-gray-500 text-center mb-6 max-w-md">
                     برای مشاهده جزئیات کامل ملک، اطلاعات مالک، عوارض و امکانات پرداخت، لطفاً وارد حساب کاربری خود شوید.
                 </p>
-                <div className="flex flex-col sm:flex-row gap-3 w-full max-w-xs">
-                    <button
-                        onClick={handleLogin}
-                        className="flex-1 py-3 px-6 bg-[#145d6e] text-white rounded-xl font-medium hover:bg-[#1a7a8f] transition-colors flex items-center justify-center gap-2"
-                    >
-                        <LogIn className="w-5 h-5" />
-                        ورود به حساب کاربری
-                    </button>
-                    <button
-                        onClick={onClose}
-                        className="flex-1 py-3 px-6 border border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
-                    >
-                        بستن
-                    </button>
-                </div>
+
                 {user && (
                     <p className="mt-4 text-sm text-gray-400">
                         در حال حاضر وارد نشده‌اید. {user?.phone && `(${user.phone})`}
@@ -664,7 +653,9 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                                     <div className="grid grid-cols-3 gap-4 text-sm">
                                         <div>
                                             <span className="text-gray-500 text-xs block">طبقه</span>
-                                            <span className="font-medium">{unit.sakhteman || '-'}</span>
+                                            <span className="font-medium">
+                                                {unit.tabaghe || '-'}
+                                            </span>
                                         </div>
                                         <div>
                                             <span className="text-gray-500 text-xs block">زیربنا (متر)</span>
