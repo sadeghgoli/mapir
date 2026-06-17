@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import {
     X, Printer, CheckCircle, CreditCard, MapPin, Copy, Check,
     ChevronRight, Building2, Users, Ruler, Loader2, AlertCircle,
-    Star, StarOff
+    Star, StarOff, LogIn
 } from 'lucide-react';
 import { useAuth } from '@/app/contexts/AuthContext';
 
@@ -77,7 +77,7 @@ interface ChargeItem {
 }
 
 export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModalProps) {
-    const { isAuthenticated, accessToken } = useAuth();
+    const { isAuthenticated, login, user } = useAuth();
     const [mounted, setMounted] = useState(false);
     const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -86,7 +86,6 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
     const [units, setUnits] = useState<BuildingUnit[]>([]);
     const [selectedUnit, setSelectedUnit] = useState<BuildingUnit | null>(null);
     const [selectedCharge, setSelectedCharge] = useState<ChargeItem | null>(null);
-    const [copiedField, setCopiedField] = useState<string | null>(null);
 
     const [ownerName, setOwnerName] = useState('');
     const [area, setArea] = useState('');
@@ -99,7 +98,6 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
     const [pasmandPaymentId, setPasmandPaymentId] = useState('');
     const [landCode, setLandCode] = useState<string>('');
 
-    // ✅ state های مکان منتخب
     const [isSaved, setIsSaved] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [saveMessage, setSaveMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
@@ -109,7 +107,6 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
         return localStorage.getItem('token');
     }, []);
 
-    // ✅ بررسی ذخیره بودن مکان
     const checkIfSaved = useCallback(async (code: string) => {
         if (!isAuthenticated) return;
         const token = getToken();
@@ -128,7 +125,6 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
         }
     }, [isAuthenticated, getToken]);
 
-    // ✅ اضافه/حذف مکان منتخب
     const handleToggleSave = async () => {
         if (!isAuthenticated) {
             setSaveMessage({ text: 'برای ذخیره مکان ابتدا وارد شوید', type: 'error' });
@@ -145,7 +141,6 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
 
         try {
             if (isSaved) {
-                // حذف — ابتدا id را پیدا کن
                 const listRes = await fetch(`${API_BASE_URL}/api/locations`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
@@ -164,7 +159,6 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                     }
                 }
             } else {
-                // اضافه کردن
                 const res = await fetch(`${API_BASE_URL}/api/locations`, {
                     method: 'POST',
                     headers: {
@@ -351,7 +345,6 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                 setChargeAmount(nosaziData.amount || null);
             }
 
-            // ✅ بررسی ذخیره بودن بعد از بارگذاری
             await checkIfSaved(resolvedLandCode);
 
         } catch (err) {
@@ -380,89 +373,81 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
             setLandCode('');
             setIsSaved(false);
             setSaveMessage(null);
-            fetchNosaziInfo(nosaziData.code);
+
+            if (isAuthenticated) {
+                fetchNosaziInfo(nosaziData.code);
+            } else {
+                setIsLoading(false);
+            }
         } else {
             document.body.style.overflow = 'unset';
         }
         return () => { document.body.style.overflow = 'unset'; };
-    }, [isOpen, nosaziData.code]);
+    }, [isOpen, nosaziData.code, isAuthenticated]);
 
-    const handleCopy = (text: string, field: string) => {
-        if (text) {
-            navigator.clipboard.writeText(text);
-            setCopiedField(field);
-            setTimeout(() => setCopiedField(null), 2000);
+    const handlePayment = async () => {
+        if (!selectedCharge?.amount || !selectedCharge.billId || !selectedCharge.paymentId) {
+            setSaveMessage({ text: 'اطلاعات پرداخت ناقص است', type: 'error' });
+            setTimeout(() => setSaveMessage(null), 3000);
+            return;
+        }
+
+        if (!isAuthenticated) {
+            setSaveMessage({ text: 'برای پرداخت ابتدا وارد شوید', type: 'error' });
+            setTimeout(() => setSaveMessage(null), 3000);
+            return;
+        }
+
+        const token = getToken();
+        if (!token) {
+            setSaveMessage({ text: 'توکن احراز هویت یافت نشد', type: 'error' });
+            setTimeout(() => setSaveMessage(null), 3000);
+            return;
+        }
+
+        setIsProcessing(true);
+        setSaveMessage(null);
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/payment/create`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    locationCode: landCode || nosaziData.code,
+                    title: selectedCharge.title,
+                    billId: selectedCharge.billId,
+                    paymentId: selectedCharge.paymentId,
+                    amount: selectedCharge.amount,
+                    description: `پرداخت ${selectedCharge.title} - ملک ${landCode || nosaziData.code}`
+                })
+            });
+
+            const data = await res.json();
+
+            if (data.success && data.paymentUrl) {
+                sessionStorage.setItem('paymentInfo', JSON.stringify({
+                    orderId: data.orderId,
+                    locationCode: landCode || nosaziData.code,
+                    amount: selectedCharge.amount,
+                    title: selectedCharge.title
+                }));
+
+                window.location.href = data.paymentUrl;
+            } else {
+                setSaveMessage({ text: data.message || 'خطا در ایجاد سفارش پرداخت', type: 'error' });
+                setTimeout(() => setSaveMessage(null), 3000);
+            }
+        } catch (err) {
+            console.error('Payment error:', err);
+            setSaveMessage({ text: 'خطا در ارتباط با سرور', type: 'error' });
+            setTimeout(() => setSaveMessage(null), 3000);
+        } finally {
+            setIsProcessing(false);
         }
     };
-
-// ✅ تابع handlePayment را با این کد جایگزین کنید
-const handlePayment = async () => {
-    if (!selectedCharge?.amount || !selectedCharge.billId || !selectedCharge.paymentId) {
-        setSaveMessage({ text: 'اطلاعات پرداخت ناقص است', type: 'error' });
-        setTimeout(() => setSaveMessage(null), 3000);
-        return;
-    }
-
-    if (!isAuthenticated) {
-        setSaveMessage({ text: 'برای پرداخت ابتدا وارد شوید', type: 'error' });
-        setTimeout(() => setSaveMessage(null), 3000);
-        return;
-    }
-
-    const token = getToken();
-    if (!token) {
-        setSaveMessage({ text: 'توکن احراز هویت یافت نشد', type: 'error' });
-        setTimeout(() => setSaveMessage(null), 3000);
-        return;
-    }
-
-    setIsProcessing(true);
-    setSaveMessage(null);
-
-    try {
-        const res = await fetch(`${API_BASE_URL}/api/payment/create`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                locationCode: landCode || nosaziData.code,
-                title: selectedCharge.title,
-                billId: selectedCharge.billId,
-                paymentId: selectedCharge.paymentId,
-                amount: selectedCharge.amount,
-                description: `پرداخت ${selectedCharge.title} - ملک ${landCode || nosaziData.code}`
-            })
-        });
-
-        const data = await res.json();
-
-        if (data.success && data.paymentUrl) {
-            // ذخیره اطلاعات در sessionStorage برای نمایش بعد از بازگشت
-            sessionStorage.setItem('paymentInfo', JSON.stringify({
-                orderId: data.orderId,
-                locationCode: landCode || nosaziData.code,
-                amount: selectedCharge.amount,
-                title: selectedCharge.title
-            }));
-
-            // ریدایرکت به درگاه پرداخت
-            window.location.href = data.paymentUrl;
-        } else {
-            setSaveMessage({ text: data.message || 'خطا در ایجاد سفارش پرداخت', type: 'error' });
-            setTimeout(() => setSaveMessage(null), 3000);
-        }
-    } catch (err) {
-        console.error('Payment error:', err);
-        setSaveMessage({ text: 'خطا در ارتباط با سرور', type: 'error' });
-        setTimeout(() => setSaveMessage(null), 3000);
-    } finally {
-        setIsProcessing(false);
-    }
-};
-
-    const handlePrintReceipt = () => { window.print(); };
 
     const handleSelectCharge = (type: 'nosazi' | 'pasmand') => {
         const targetUnit = selectedUnit || units[0];
@@ -488,14 +473,56 @@ const handlePayment = async () => {
         setStep(4);
     };
 
+    const handleLogin = () => {
+        login();
+    };
+
     if (!isOpen || !mounted) return null;
 
     const stepTitles = {
         1: 'اطلاعات ملک', 2: 'انتخاب واحد ساختمان',
-        3: 'انتخاب عوارض قابل پرداخت', 4: 'جزئیات و تایید پرداخت',
+        3: 'انتخاب عوارض قابل پرداخت', 4: 'تایید پرداخت',
+    };
+
+    const renderLoginMessage = () => {
+        return (
+            <div className="flex flex-col items-center justify-center py-12 px-4">
+                <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mb-6">
+                    <LogIn className="w-10 h-10 text-amber-600" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-800 mb-2">برای مشاهده اطلاعات ملک وارد شوید</h3>
+                <p className="text-gray-500 text-center mb-6 max-w-md">
+                    برای مشاهده جزئیات کامل ملک، اطلاعات مالک، عوارض و امکانات پرداخت، لطفاً وارد حساب کاربری خود شوید.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 w-full max-w-xs">
+                    <button
+                        onClick={handleLogin}
+                        className="flex-1 py-3 px-6 bg-[#145d6e] text-white rounded-xl font-medium hover:bg-[#1a7a8f] transition-colors flex items-center justify-center gap-2"
+                    >
+                        <LogIn className="w-5 h-5" />
+                        ورود به حساب کاربری
+                    </button>
+                    <button
+                        onClick={onClose}
+                        className="flex-1 py-3 px-6 border border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
+                    >
+                        بستن
+                    </button>
+                </div>
+                {user && (
+                    <p className="mt-4 text-sm text-gray-400">
+                        در حال حاضر وارد نشده‌اید. {user?.phone && `(${user.phone})`}
+                    </p>
+                )}
+            </div>
+        );
     };
 
     const renderContent = () => {
+        if (!isAuthenticated) {
+            return renderLoginMessage();
+        }
+
         if (isLoading) {
             return (
                 <div className="flex flex-col items-center justify-center py-12">
@@ -535,7 +562,6 @@ const handlePayment = async () => {
                                 </p>
                             </div>
 
-                            {/* ✅ دکمه مکان منتخب */}
                             <button
                                 onClick={handleToggleSave}
                                 disabled={isSaving}
@@ -565,7 +591,6 @@ const handlePayment = async () => {
                             </button>
                         </div>
 
-                        {/* ✅ پیام موفقیت/خطا */}
                         {saveMessage && (
                             <div className={`rounded-lg p-3 text-sm flex items-center gap-2 ${
                                 saveMessage.type === 'success'
@@ -586,7 +611,7 @@ const handlePayment = async () => {
                                 <div className="relative">
                                     <Users className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                                     <input type="text" value={ownerName} disabled
-                                        className="w-full pr-10 pl-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-right" dir="rtl" />
+                                           className="w-full pr-10 pl-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-right" dir="rtl" />
                                 </div>
                             </div>
                             <div>
@@ -594,7 +619,7 @@ const handlePayment = async () => {
                                 <div className="relative">
                                     <Ruler className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                                     <input type="text" value={area} disabled
-                                        className="w-full pr-10 pl-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-right" />
+                                           className="w-full pr-10 pl-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-right" />
                                 </div>
                             </div>
                         </div>
@@ -620,11 +645,11 @@ const handlePayment = async () => {
                         <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
                             {units.map((unit) => (
                                 <div key={unit.id} onClick={() => setSelectedUnit(unit)}
-                                    className={`border rounded-xl p-4 cursor-pointer transition-all duration-200 ${
-                                        selectedUnit?.id === unit.id
-                                            ? 'border-[#145d6e] bg-[#145d6e]/5 ring-1 ring-[#145d6e]'
-                                            : 'border-gray-200 hover:border-gray-300 bg-white'
-                                    }`}>
+                                     className={`border rounded-xl p-4 cursor-pointer transition-all duration-200 ${
+                                         selectedUnit?.id === unit.id
+                                             ? 'border-[#145d6e] bg-[#145d6e]/5 ring-1 ring-[#145d6e]'
+                                             : 'border-gray-200 hover:border-gray-300 bg-white'
+                                     }`}>
                                     <div className="flex justify-between items-start mb-3">
                                         <div className="flex items-center gap-2">
                                             <span className="text-xs text-gray-500">کد نوسازی:</span>
@@ -700,10 +725,10 @@ const handlePayment = async () => {
                                     </div>
                                 </div>
                                 <button onClick={() => handleSelectCharge(type)} disabled={!amount}
-                                    className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-colors shrink-0 flex items-center gap-2 ${
-                                        amount ? 'bg-[#145d6e] hover:bg-[#1a7a8f] text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                    }`}>
-                                    جزئیات و پرداخت
+                                        className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-colors shrink-0 flex items-center gap-2 ${
+                                            amount ? 'bg-[#145d6e] hover:bg-[#1a7a8f] text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                        }`}>
+                                    پرداخت
                                     <ChevronRight className="w-4 h-4 rotate-180" />
                                 </button>
                             </div>
@@ -720,16 +745,35 @@ const handlePayment = async () => {
 
                 {step === 4 && selectedCharge && (
                     <div className="space-y-6">
-                        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 space-y-3">
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm text-gray-500">عنوان عوارض</span>
-                                <span className="text-gray-800">{selectedCharge.title}</span>
+                        <div className="bg-gradient-to-r from-[#f8fafc] to-[#f1f5f9] rounded-xl p-6 border border-[#e2e8f0]">
+                            <div className="flex items-center gap-3 mb-4 pb-4 border-b border-[#e2e8f0]">
+                                <div className="w-12 h-12 rounded-full bg-[#145d6e]/10 flex items-center justify-center">
+                                    <CreditCard className="w-6 h-6 text-[#145d6e]" />
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-500">انتخاب شده</p>
+                                    <p className="text-lg font-semibold text-gray-800">{selectedCharge.title}</p>
+                                </div>
                             </div>
-                            <div className="flex items-center justify-between pt-3 border-t border-gray-200">
-                                <span className="text-base text-gray-700">مبلغ قابل پرداخت</span>
-                                <span className={`text-xl ${selectedCharge.amount ? 'text-green-600' : 'text-gray-400'}`}>
-                                    {selectedCharge.amount ? `${selectedCharge.amount.toLocaleString()} ریال` : '-'}
-                                </span>
+
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm text-gray-500">مبلغ قابل پرداخت</p>
+                                    <p className={`text-2xl font-bold ${selectedCharge.amount ? 'text-green-600' : 'text-gray-400'}`}>
+                                        {selectedCharge.amount ? `${selectedCharge.amount.toLocaleString()} ریال` : '-'}
+                                    </p>
+                                </div>
+                                <div className="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center">
+                                    <CheckCircle className="w-8 h-8 text-green-500" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm text-blue-800 flex items-start gap-3">
+                            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                            <div>
+                                <p className="font-medium">توجه:</p>
+                                <p>پس از کلیک روی دکمه پرداخت، به درگاه بانکی هدایت خواهید شد.</p>
                             </div>
                         </div>
 
@@ -738,28 +782,6 @@ const handlePayment = async () => {
                                 <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
                                 <span>مبلغ عوارض ثبت نشده است و امکان پرداخت وجود ندارد.</span>
                             </div>
-                        )}
-
-                        <div className="border border-gray-200 rounded-xl overflow-hidden">
-                            {[
-                                { label: 'شناسه قبض', value: selectedCharge.billId, key: 'bill' },
-                                { label: 'شناسه پرداخت', value: selectedCharge.paymentId, key: 'payment' }
-                            ].map(({ label, value, key }, i) => (
-                                <div key={key} className={`flex items-center justify-between p-4 ${i === 0 ? 'border-b border-gray-200 bg-gray-50/50' : ''}`}>
-                                    <button onClick={() => handleCopy(value || '', key)}
-                                        className="w-10 h-10 bg-white border border-gray-300 rounded-lg flex items-center justify-center hover:bg-gray-50 transition-all">
-                                        {copiedField === key ? <Check className="w-5 h-5 text-green-600" /> : <Copy className="w-5 h-5 text-gray-600" />}
-                                    </button>
-                                    <div className="flex items-center gap-3">
-                                        <span className="text-sm text-gray-500">{label}</span>
-                                        <span className="text-lg font-mono text-gray-800">{value || '-'}</span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        {copiedField && (
-                            <p className="text-center text-sm text-green-600 font-medium animate-pulse">کد با موفقیت کپی شد!</p>
                         )}
                     </div>
                 )}
@@ -771,7 +793,7 @@ const handlePayment = async () => {
         <>
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" style={{ zIndex: 99998 }} />
             <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col bg-white rounded-2xl shadow-2xl"
-                style={{ zIndex: 99999 }} dir="rtl">
+                 style={{ zIndex: 99999 }} dir="rtl">
 
                 <div className="bg-gradient-to-r from-[#145d6e] to-[#1a7a8f] px-6 py-4 text-white flex justify-between items-center shrink-0">
                     <div className="flex items-center gap-3">
@@ -791,51 +813,63 @@ const handlePayment = async () => {
                 <div className="flex-1 overflow-y-auto p-6 space-y-6">{renderContent()}</div>
 
                 <div className="p-6 border-t border-gray-200 bg-gray-50 shrink-0 flex justify-between items-center gap-3">
-                    {step > 1 && step < 4 && (
+                    {isAuthenticated && step > 1 && step < 4 && (
                         <button onClick={() => setStep((prev) => (prev - 1) as any)}
-                            className="px-6 py-2.5 rounded-xl font-medium border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors">
+                                className="px-6 py-2.5 rounded-xl font-medium border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors">
                             بازگشت
                         </button>
                     )}
-                    {step === 1 && !isLoading && !apiError && (
+                    {isAuthenticated && step === 1 && !isLoading && !apiError && (
                         <button onClick={() => setStep(2)}
-                            className="mr-auto px-8 py-2.5 rounded-xl font-medium bg-[#145d6e] text-white hover:bg-[#1a7a8f] transition-colors flex items-center gap-2">
+                                className="mr-auto px-8 py-2.5 rounded-xl font-medium bg-[#145d6e] text-white hover:bg-[#1a7a8f] transition-colors flex items-center gap-2">
                             تایید اطلاعات
                             <ChevronRight className="w-4 h-4 rotate-180" />
                         </button>
                     )}
-                    {step === 2 && (
+                    {isAuthenticated && step === 2 && (
                         <button onClick={() => selectedUnit && setStep(3)} disabled={!selectedUnit}
-                            className={`mr-auto px-8 py-2.5 rounded-xl font-medium transition-colors flex items-center gap-2 ${
-                                selectedUnit ? 'bg-[#145d6e] text-white hover:bg-[#1a7a8f]' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                            }`}>
+                                className={`mr-auto px-8 py-2.5 rounded-xl font-medium transition-colors flex items-center gap-2 ${
+                                    selectedUnit ? 'bg-[#145d6e] text-white hover:bg-[#1a7a8f]' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                }`}>
                             ادامه و انتخاب عوارض
                             <ChevronRight className="w-4 h-4 rotate-180" />
                         </button>
                     )}
-                    {step === 3 && (
+                    {isAuthenticated && step === 3 && (
                         <button onClick={onClose}
-                            className="mr-auto px-6 py-2.5 rounded-xl font-medium border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors">
+                                className="mr-auto px-6 py-2.5 rounded-xl font-medium border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors">
                             انصراف
                         </button>
                     )}
-                    {step === 4 && (
-                        <div className="flex gap-3 w-full justify-end">
-                            <button onClick={handlePrintReceipt}
-                                className="px-5 py-2.5 rounded-xl font-medium border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-2">
-                                <Printer className="w-4 h-4" /> چاپ رسید
+                    {isAuthenticated && step === 4 && (
+                        <div className="flex gap-3 w-full">
+                            <button onClick={() => setStep(3)}
+                                    className="px-5 py-2.5 rounded-xl font-medium border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-2">
+                                بازگشت
                             </button>
                             <button onClick={handlePayment} disabled={isProcessing || !selectedCharge?.amount}
-                                className={`flex-1 max-w-xs py-2.5 rounded-xl font-medium transition-all duration-200 flex items-center justify-center gap-2 text-white ${
-                                    isProcessing || !selectedCharge?.amount
-                                        ? 'bg-gray-400 cursor-not-allowed'
-                                        : 'bg-[#145d6e] hover:bg-[#1a7a8f] hover:shadow-lg'
-                                }`}>
+                                    className={`flex-1 py-2.5 rounded-xl font-medium transition-all duration-200 flex items-center justify-center gap-2 text-white ${
+                                        isProcessing || !selectedCharge?.amount
+                                            ? 'bg-gray-400 cursor-not-allowed'
+                                            : 'bg-[#145d6e] hover:bg-[#1a7a8f] hover:shadow-lg'
+                                    }`}>
                                 {isProcessing ? (
-                                    <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> در حال پردازش...</>
+                                    <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> در حال اتصال به درگاه...</>
                                 ) : (
-                                    <><CheckCircle className="w-4 h-4" /> تایید و پرداخت</>
+                                    <><CreditCard className="w-4 h-4" /> پرداخت و رفتن به درگاه بانکی</>
                                 )}
+                            </button>
+                        </div>
+                    )}
+
+                    {!isAuthenticated && (
+                        <div className="w-full flex justify-center">
+                            <button
+                                onClick={handleLogin}
+                                className="px-8 py-2.5 rounded-xl font-medium bg-[#145d6e] text-white hover:bg-[#1a7a8f] transition-colors flex items-center gap-2"
+                            >
+                                <LogIn className="w-4 h-4" />
+                                ورود به حساب کاربری
                             </button>
                         </div>
                     )}
