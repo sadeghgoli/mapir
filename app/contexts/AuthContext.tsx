@@ -2,7 +2,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
 interface User {
     id: string;
@@ -25,7 +25,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const API_BASE_URL = 'https://apiweb-payonmap.sabzevar.ir:8446';
 
-// تابع کمکی برای دسترسی امن به localStorage
 const getLocalStorage = (key: string): string | null => {
     if (typeof window === 'undefined') return null;
     return localStorage.getItem(key);
@@ -47,18 +46,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [isLoading, setIsLoading] = useState(true);
     const [mounted, setMounted] = useState(false);
     const router = useRouter();
-    const searchParams = useSearchParams();
 
-    // ذخیره اطلاعات
     const saveAuthData = useCallback((token: string, userData: User) => {
-        console.log('💾 Saving auth data:', userData);
         setAccessToken(token);
         setUser(userData);
         setLocalStorage('token', token);
         setLocalStorage('user', JSON.stringify(userData));
     }, []);
 
-    // پاک کردن اطلاعات
     const clearAuthData = useCallback(() => {
         setAccessToken(null);
         setUser(null);
@@ -66,10 +61,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         removeLocalStorage('user');
     }, []);
 
-    // دریافت اطلاعات کاربر با توکن
     const fetchUserInfo = useCallback(async (token: string): Promise<User | null> => {
         try {
-            console.log('📡 Fetching user info...');
             const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -78,40 +71,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             });
 
             if (response.ok) {
-                const userData = await response.json();
-                console.log('✅ User info received:', userData);
-                return userData;
-            } else {
-                console.error('Failed to fetch user info:', response.status);
-                return null;
+                const result = await response.json();
+                return result.data || result;
             }
+            return null;
         } catch (error) {
             console.error('Error fetching user info:', error);
             return null;
         }
     }, []);
 
-    // تابع لاگین - تغییر یافته به هدایت در صفحه فعلی
     const login = useCallback(async () => {
         try {
             setIsLoading(true);
-            console.log('🔐 Starting login process...');
-
             const response = await fetch(`${API_BASE_URL}/api/auth/login`);
             const data = await response.json();
-            console.log(data);
 
             if (data.loginUrl) {
-                // ایجاد state برای جلوگیری از CSRF
                 const state = Math.random().toString(36).substring(2);
                 sessionStorage.setItem('loginState', state);
 
-                // اضافه کردن state به URL اگر سرور پشتیبانی می‌کند
+                // ✅ prompt=login از سمت فرانت هم اضافه میشه (دو لایه اطمینان)
                 const loginUrl = new URL(data.loginUrl);
-                loginUrl.searchParams.append('state', state);
-                loginUrl.searchParams.append('redirect_uri', `${window.location.origin}/auth/callback`);
+                loginUrl.searchParams.set('prompt', 'login');
 
-                // هدایت در همان صفحه (بدون پاپ‌آپ)
                 window.location.href = loginUrl.toString();
             }
         } catch (error) {
@@ -121,71 +104,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
-    // تابع خروج
     const logout = useCallback(async () => {
         try {
-            if (accessToken) {
+            // ✅ توکن از localStorage خونده میشه نه از state
+            const token = getLocalStorage('token');
+
+            if (token) {
                 await fetch(`${API_BASE_URL}/api/auth/logout`, {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${accessToken}`,
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
                     },
                 });
             }
         } catch (error) {
             console.error('Logout error:', error);
         } finally {
+            // ✅ همیشه اجرا میشه حتی اگه API خطا بده
             clearAuthData();
             router.push('/');
         }
-    }, [accessToken, clearAuthData, router]);
+    }, [clearAuthData, router]);
 
-    // بررسی و تکمیل اطلاعات کاربر بعد از لاگین
-    const handleLoginSuccess = useCallback(async () => {
-        const storedToken = getLocalStorage('token');
-        const storedUser = getLocalStorage('user');
+    // ✅ set mounted
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
-        if (storedToken && storedUser) {
-            // اطلاعات کامل وجود دارد
-            try {
-                setAccessToken(storedToken);
-                setUser(JSON.parse(storedUser));
-                console.log('✅ Loaded stored user');
-                return true;
-            } catch (e) {
-                console.error('Error loading user:', e);
-                removeLocalStorage('user');
-            }
-        }
-
-        if (storedToken && !storedUser) {
-            // فقط توکن وجود دارد، باید اطلاعات کاربر را دریافت کنیم
-            console.log('🔄 Token exists but no user data, fetching...');
-            const userData = await fetchUserInfo(storedToken);
-            if (userData) {
-                saveAuthData(storedToken, userData);
-                return true;
-            } else {
-                // توکن نامعتبر است
-                clearAuthData();
-                return false;
-            }
-        }
-
-        return false;
-    }, [fetchUserInfo, saveAuthData, clearAuthData]);
-
-    // حذف تابع handleMessage چون دیگر نیازی به ارتباط با پاپ‌آپ نیست
-    // دیگر نیازی به event listener برای message نداریم
-
-    // بررسی اولیه و مدیریت پارامترهای URL
+    // ✅ بارگذاری اولیه از localStorage
     useEffect(() => {
         if (!mounted) return;
 
         const initAuth = async () => {
             setIsLoading(true);
 
-            // بررسی توکن در localStorage
             const storedToken = getLocalStorage('token');
             const storedUser = getLocalStorage('user');
 
@@ -193,13 +146,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 try {
                     setAccessToken(storedToken);
                     setUser(JSON.parse(storedUser));
-                    console.log('✅ Loaded stored user');
-                } catch (e) {
-                    console.error('Error loading user:', e);
+                } catch {
                     clearAuthData();
                 }
             } else if (storedToken && !storedUser) {
-                // فقط توکن وجود دارد، دریافت اطلاعات کاربر
                 const userInfo = await fetchUserInfo(storedToken);
                 if (userInfo) {
                     saveAuthData(storedToken, userInfo);
@@ -212,32 +162,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
 
         initAuth();
-    }, [fetchUserInfo, saveAuthData, clearAuthData, mounted]);
+    }, [mounted, fetchUserInfo, saveAuthData, clearAuthData]);
 
-    // بررسی اعتبار توکن در بازه‌های زمانی (اختیاری)
+    // ✅ گوش دادن به storage event — وقتی callback توکن را ذخیره کرد
+    useEffect(() => {
+        if (!mounted) return;
+
+        const handleStorageChange = async (e: StorageEvent) => {
+            if (e.key === 'token' && e.newValue) {
+                const token = e.newValue;
+                const storedUser = localStorage.getItem('user');
+
+                if (storedUser) {
+                    try {
+                        setAccessToken(token);
+                        setUser(JSON.parse(storedUser));
+                    } catch {
+                        const userData = await fetchUserInfo(token);
+                        if (userData) saveAuthData(token, userData);
+                    }
+                } else {
+                    const userData = await fetchUserInfo(token);
+                    if (userData) saveAuthData(token, userData);
+                }
+            }
+
+            if (e.key === 'token' && !e.newValue) {
+                clearAuthData();
+            }
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
+    }, [mounted, fetchUserInfo, saveAuthData, clearAuthData]);
+
+    // ✅ اعتبارسنجی دوره‌ای توکن هر 5 دقیقه
     useEffect(() => {
         if (!mounted || !accessToken) return;
 
         const validateToken = async () => {
             const userInfo = await fetchUserInfo(accessToken);
             if (!userInfo) {
-                console.log('⚠️ Token invalid, logging out...');
                 await logout();
             }
         };
 
-        // هر 5 دقیقه یکبار بررسی شود
         const interval = setInterval(validateToken, 5 * 60 * 1000);
-
         return () => clearInterval(interval);
     }, [accessToken, fetchUserInfo, logout, mounted]);
 
-    // ست کردن mounted بعد از رندر اولیه
-    useEffect(() => {
-        setMounted(true);
-    }, []);
-
-    // در حین SSR یا قبل از mount، یک حالت پیش‌فرض برگردان
     if (!mounted) {
         return (
             <AuthContext.Provider

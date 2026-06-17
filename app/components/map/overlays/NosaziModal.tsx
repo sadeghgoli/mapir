@@ -1,10 +1,14 @@
 'use client';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
     X, Printer, CheckCircle, CreditCard, MapPin, Copy, Check,
-    ChevronRight, Building2, Users, Ruler, Loader2, AlertCircle, Trash2
+    ChevronRight, Building2, Users, Ruler, Loader2, AlertCircle,
+    Star, StarOff
 } from 'lucide-react';
+import { useAuth } from '@/app/contexts/AuthContext';
+
+const API_BASE_URL = 'https://apiweb-payonmap.sabzevar.ir:8446';
 
 interface NosaziModalProps {
     isOpen: boolean;
@@ -73,6 +77,7 @@ interface ChargeItem {
 }
 
 export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModalProps) {
+    const { isAuthenticated, accessToken } = useAuth();
     const [mounted, setMounted] = useState(false);
     const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -92,52 +97,133 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
     const [pasmandAmount, setPasmandAmount] = useState<number | null>(null);
     const [pasmandBillId, setPasmandBillId] = useState('');
     const [pasmandPaymentId, setPasmandPaymentId] = useState('');
-
-    // ✅ state جدید برای ذخیره کد زمین
     const [landCode, setLandCode] = useState<string>('');
+
+    // ✅ state های مکان منتخب
+    const [isSaved, setIsSaved] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveMessage, setSaveMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+    const getToken = useCallback(() => {
+        if (typeof window === 'undefined') return null;
+        return localStorage.getItem('token');
+    }, []);
+
+    // ✅ بررسی ذخیره بودن مکان
+    const checkIfSaved = useCallback(async (code: string) => {
+        if (!isAuthenticated) return;
+        const token = getToken();
+        if (!token) return;
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/locations/check/${encodeURIComponent(code)}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setIsSaved(data.isSaved);
+            }
+        } catch (err) {
+            console.error('Error checking location:', err);
+        }
+    }, [isAuthenticated, getToken]);
+
+    // ✅ اضافه/حذف مکان منتخب
+    const handleToggleSave = async () => {
+        if (!isAuthenticated) {
+            setSaveMessage({ text: 'برای ذخیره مکان ابتدا وارد شوید', type: 'error' });
+            setTimeout(() => setSaveMessage(null), 3000);
+            return;
+        }
+
+        const token = getToken();
+        if (!token) return;
+
+        const codeToSave = landCode || nosaziData.code;
+        setIsSaving(true);
+        setSaveMessage(null);
+
+        try {
+            if (isSaved) {
+                // حذف — ابتدا id را پیدا کن
+                const listRes = await fetch(`${API_BASE_URL}/api/locations`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (listRes.ok) {
+                    const listData = await listRes.json();
+                    const found = listData.data?.find((l: any) => l.locationCode === codeToSave);
+                    if (found) {
+                        const delRes = await fetch(`${API_BASE_URL}/api/locations/${found.id}`, {
+                            method: 'DELETE',
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        if (delRes.ok) {
+                            setIsSaved(false);
+                            setSaveMessage({ text: 'مکان از لیست منتخب حذف شد', type: 'success' });
+                        }
+                    }
+                }
+            } else {
+                // اضافه کردن
+                const res = await fetch(`${API_BASE_URL}/api/locations`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        locationCode: codeToSave,
+                        address: address || nosaziData.address,
+                        title: ownerName ? `ملک ${ownerName}` : codeToSave,
+                        latitude: null,
+                        longitude: null
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    setIsSaved(true);
+                    setSaveMessage({ text: 'مکان به لیست منتخب اضافه شد', type: 'success' });
+                } else {
+                    setSaveMessage({ text: data.message || 'خطا در ذخیره', type: 'error' });
+                }
+            }
+        } catch (err) {
+            setSaveMessage({ text: 'خطا در ارتباط با سرور', type: 'error' });
+        } finally {
+            setIsSaving(false);
+            setTimeout(() => setSaveMessage(null), 3000);
+        }
+    };
 
     const encodeToBase64 = (code: string): string => {
         const utf8Bytes = new TextEncoder().encode(code);
         let binary = '';
-        for (let i = 0; i < utf8Bytes.length; i++) {
-            binary += String.fromCharCode(utf8Bytes[i]);
-        }
+        for (let i = 0; i < utf8Bytes.length; i++) binary += String.fromCharCode(utf8Bytes[i]);
         return btoa(binary);
     };
 
     const decodePersianText = (text: string | null): string | null => {
         if (!text) return null;
         try {
-            if (text.includes('Ù') || text.includes('Ø') || text.includes('â') || text.includes('™')) {
+            if (text.includes('Ù') || text.includes('Ø') || text.includes('â') || text.includes('TM')) {
                 const bytes = new Uint8Array(text.length);
-                for (let i = 0; i < text.length; i++) {
-                    bytes[i] = text.charCodeAt(i);
-                }
+                for (let i = 0; i < text.length; i++) bytes[i] = text.charCodeAt(i);
                 return new TextDecoder('utf-8').decode(bytes);
             }
             return text;
-        } catch (e) {
-            console.error('Error decoding text:', e);
-            return text;
-        }
+        } catch { return text; }
     };
 
     const extractFloorFromCode = (codeN: string): number => {
         if (!codeN) return 0;
         const parts = codeN.split('-');
-        if (parts.length >= 5) {
-            return parseInt(parts[4]) || 0;
-        }
-        return 0;
+        return parts.length >= 5 ? parseInt(parts[4]) || 0 : 0;
     };
 
     const extractUnitFromCode = (codeN: string): number => {
         if (!codeN) return 0;
         const parts = codeN.split('-');
-        if (parts.length >= 6) {
-            return parseInt(parts[5]) || 0;
-        }
-        return 0;
+        return parts.length >= 6 ? parseInt(parts[5]) || 0 : 0;
     };
 
     const formatCodeN = (codeN: string): string => {
@@ -155,27 +241,19 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
             const url = `/api/AmardDataHandler/AmardDataHandler.ashx?data=${encodedCode}`;
 
             const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error(`خطا در ارتباط با سرور: ${response.status}`);
-            }
+            if (!response.ok) throw new Error(`خطا در ارتباط با سرور: ${response.status}`);
 
             const responseText = await response.text();
             const lines = responseText.split(/\r?\n/);
-
-            if (lines.length < 2) {
-                setApiError('پاسخ نامعتبر از سرور');
-                return;
-            }
+            if (lines.length < 2) { setApiError('پاسخ نامعتبر از سرور'); return; }
 
             const encodedText = lines[1].trim();
             let decodedData = '';
-
             try {
                 const binaryString = atob(encodedText);
                 const bytes = Uint8Array.from(binaryString, c => c.charCodeAt(0));
                 decodedData = new TextDecoder('utf-8').decode(bytes);
-            } catch (decodeError) {
-                console.error('Base64 decode error:', decodeError);
+            } catch {
                 setApiError('خطا در دیکد کردن پاسخ سرور');
                 return;
             }
@@ -186,14 +264,10 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                 if (!cleanData.startsWith('[') && !cleanData.startsWith('{')) {
                     const jsonMatch = cleanData.match(/\[[\s\S]*\]/);
                     if (jsonMatch) cleanData = jsonMatch[0];
-                    else {
-                        setApiError(decodedData);
-                        return;
-                    }
+                    else { setApiError(decodedData); return; }
                 }
                 rawData = JSON.parse(cleanData);
-            } catch (jsonError) {
-                console.error('JSON parse error:', jsonError);
+            } catch {
                 setApiError(decodedData || 'فرمت پاسخ سرور معتبر نیست');
                 return;
             }
@@ -254,23 +328,16 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
 
             setUnits(transformedUnits);
 
-            // ✅ پیدا کردن و ذخیره کد زمین
             const landItem = rawData.find(item => item.code_tree === 0 || item.codeN?.endsWith('-0-0-0'));
-
-            if (landItem) {
-                setLandCode(formatCodeN(landItem.codeN || ''));
-            } else {
-                setLandCode(formatCodeN(nosaziData.code));
-            }
+            const resolvedLandCode = landItem ? formatCodeN(landItem.codeN || '') : formatCodeN(nosaziData.code);
+            setLandCode(resolvedLandCode);
 
             const baseInfo = landItem || transformedUnits.find(item => item.nameMalek || item.address) || rawData[0];
-
             setOwnerName(decodePersianText(baseInfo.Name_Malek) || nosaziData.ownerName || 'نامشخص');
             setArea((typeof baseInfo.MasahatZamin === 'number' ? baseInfo.MasahatZamin.toString() : baseInfo.MasahatZamin) || nosaziData.area || 'نامشخص');
             setAddress(decodePersianText(baseInfo.neshani_melk) || nosaziData.address || 'آدرس ثبت نشده');
 
             const payableItem = transformedUnits.find(item => item.billId && item.paymentId) || transformedUnits[0];
-
             if (payableItem?.billId && payableItem?.paymentId) {
                 setBillId(payableItem.billId);
                 setPaymentId(payableItem.paymentId);
@@ -284,6 +351,9 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                 setChargeAmount(nosaziData.amount || null);
             }
 
+            // ✅ بررسی ذخیره بودن بعد از بارگذاری
+            await checkIfSaved(resolvedLandCode);
+
         } catch (err) {
             console.error('Error:', err);
             setApiError('خطا در دریافت اطلاعات. لطفاً مجدداً تلاش کنید.');
@@ -292,14 +362,10 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
         }
     };
 
-    useEffect(() => {
-        setMounted(true);
-    }, []);
+    useEffect(() => { setMounted(true); }, []);
 
     useEffect(() => {
-        const handleEsc = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') onClose();
-        };
+        const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
         if (isOpen) window.addEventListener('keydown', handleEsc);
         return () => window.removeEventListener('keydown', handleEsc);
     }, [isOpen, onClose]);
@@ -311,14 +377,14 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
             setSelectedUnit(null);
             setSelectedCharge(null);
             setApiError(null);
-            setLandCode(''); // ✅ ریست کردن کد زمین
+            setLandCode('');
+            setIsSaved(false);
+            setSaveMessage(null);
             fetchNosaziInfo(nosaziData.code);
         } else {
             document.body.style.overflow = 'unset';
         }
-        return () => {
-            document.body.style.overflow = 'unset';
-        };
+        return () => { document.body.style.overflow = 'unset'; };
     }, [isOpen, nosaziData.code]);
 
     const handleCopy = (text: string, field: string) => {
@@ -329,26 +395,80 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
         }
     };
 
-    const handlePayment = () => {
-        setIsProcessing(true);
-        setTimeout(() => {
-            setIsProcessing(false);
-            alert('پرداخت با موفقیت انجام شد');
-            onClose();
-        }, 2000);
-    };
+// ✅ تابع handlePayment را با این کد جایگزین کنید
+const handlePayment = async () => {
+    if (!selectedCharge?.amount || !selectedCharge.billId || !selectedCharge.paymentId) {
+        setSaveMessage({ text: 'اطلاعات پرداخت ناقص است', type: 'error' });
+        setTimeout(() => setSaveMessage(null), 3000);
+        return;
+    }
 
-    const handlePrintReceipt = () => {
-        window.print();
-    };
+    if (!isAuthenticated) {
+        setSaveMessage({ text: 'برای پرداخت ابتدا وارد شوید', type: 'error' });
+        setTimeout(() => setSaveMessage(null), 3000);
+        return;
+    }
+
+    const token = getToken();
+    if (!token) {
+        setSaveMessage({ text: 'توکن احراز هویت یافت نشد', type: 'error' });
+        setTimeout(() => setSaveMessage(null), 3000);
+        return;
+    }
+
+    setIsProcessing(true);
+    setSaveMessage(null);
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/payment/create`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                locationCode: landCode || nosaziData.code,
+                title: selectedCharge.title,
+                billId: selectedCharge.billId,
+                paymentId: selectedCharge.paymentId,
+                amount: selectedCharge.amount,
+                description: `پرداخت ${selectedCharge.title} - ملک ${landCode || nosaziData.code}`
+            })
+        });
+
+        const data = await res.json();
+
+        if (data.success && data.paymentUrl) {
+            // ذخیره اطلاعات در sessionStorage برای نمایش بعد از بازگشت
+            sessionStorage.setItem('paymentInfo', JSON.stringify({
+                orderId: data.orderId,
+                locationCode: landCode || nosaziData.code,
+                amount: selectedCharge.amount,
+                title: selectedCharge.title
+            }));
+
+            // ریدایرکت به درگاه پرداخت
+            window.location.href = data.paymentUrl;
+        } else {
+            setSaveMessage({ text: data.message || 'خطا در ایجاد سفارش پرداخت', type: 'error' });
+            setTimeout(() => setSaveMessage(null), 3000);
+        }
+    } catch (err) {
+        console.error('Payment error:', err);
+        setSaveMessage({ text: 'خطا در ارتباط با سرور', type: 'error' });
+        setTimeout(() => setSaveMessage(null), 3000);
+    } finally {
+        setIsProcessing(false);
+    }
+};
+
+    const handlePrintReceipt = () => { window.print(); };
 
     const handleSelectCharge = (type: 'nosazi' | 'pasmand') => {
         const targetUnit = selectedUnit || units[0];
-
         if (type === 'nosazi') {
             setSelectedCharge({
-                id: 'nosazi',
-                type: 'nosazi',
+                id: 'nosazi', type: 'nosazi',
                 title: 'عوارض نوسازی و عمران',
                 amount: chargeAmount || targetUnit?.amount,
                 billId: billId || targetUnit?.billId || '-',
@@ -357,8 +477,7 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
             });
         } else {
             setSelectedCharge({
-                id: 'pasmand',
-                type: 'pasmand',
+                id: 'pasmand', type: 'pasmand',
                 title: 'عوارض پسماند',
                 amount: pasmandAmount || targetUnit?.pasmandAmount,
                 billId: pasmandBillId || targetUnit?.pasmandBillId || '-',
@@ -372,10 +491,8 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
     if (!isOpen || !mounted) return null;
 
     const stepTitles = {
-        1: 'اطلاعات ملک',
-        2: 'انتخاب واحد ساختمان',
-        3: 'انتخاب عوارض قابل پرداخت',
-        4: 'جزئیات و تایید پرداخت',
+        1: 'اطلاعات ملک', 2: 'انتخاب واحد ساختمان',
+        3: 'انتخاب عوارض قابل پرداخت', 4: 'جزئیات و تایید پرداخت',
     };
 
     const renderContent = () => {
@@ -414,36 +531,70 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                             <div className="flex-1">
                                 <p className="text-xs text-gray-500 mb-1">کد نوسازی:</p>
                                 <p className="text-2xl text-[#145d6e] font-mono tracking-wider">
-                                    {/* ✅ استفاده از landCode به جای units[0]?.codeN */}
                                     {landCode || formatCodeN(nosaziData.code)}
                                 </p>
                             </div>
+
+                            {/* ✅ دکمه مکان منتخب */}
+                            <button
+                                onClick={handleToggleSave}
+                                disabled={isSaving}
+                                title={
+                                    !isAuthenticated
+                                        ? 'برای ذخیره مکان ابتدا وارد شوید'
+                                        : isSaved ? 'حذف از مکان‌های منتخب' : 'افزودن به مکان‌های منتخب'
+                                }
+                                className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl border-2 transition-all duration-200 shrink-0 ${
+                                    isSaved
+                                        ? 'border-amber-400 bg-amber-50 text-amber-600 hover:bg-amber-100'
+                                        : isAuthenticated
+                                            ? 'border-gray-200 bg-gray-50 text-gray-500 hover:border-[#145d6e] hover:bg-[#145d6e]/5 hover:text-[#145d6e]'
+                                            : 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed opacity-60'
+                                }`}
+                            >
+                                {isSaving ? (
+                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                ) : isSaved ? (
+                                    <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
+                                ) : (
+                                    <StarOff className="w-5 h-5" />
+                                )}
+                                <span className="text-xs whitespace-nowrap">
+                                    {isSaved ? 'منتخب' : 'افزودن'}
+                                </span>
+                            </button>
                         </div>
+
+                        {/* ✅ پیام موفقیت/خطا */}
+                        {saveMessage && (
+                            <div className={`rounded-lg p-3 text-sm flex items-center gap-2 ${
+                                saveMessage.type === 'success'
+                                    ? 'bg-green-50 border border-green-200 text-green-700'
+                                    : 'bg-red-50 border border-red-200 text-red-700'
+                            }`}>
+                                {saveMessage.type === 'success'
+                                    ? <CheckCircle className="w-4 h-4 shrink-0" />
+                                    : <AlertCircle className="w-4 h-4 shrink-0" />
+                                }
+                                {saveMessage.text}
+                            </div>
+                        )}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1.5">نام و نام خانوادگی مالک</label>
                                 <div className="relative">
                                     <Users className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                    <input
-                                        type="text"
-                                        value={ownerName}
-                                        disabled
-                                        className="w-full pr-10 pl-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-right"
-                                        dir="rtl"
-                                    />
+                                    <input type="text" value={ownerName} disabled
+                                        className="w-full pr-10 pl-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-right" dir="rtl" />
                                 </div>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1.5">مساحت زمین</label>
                                 <div className="relative">
                                     <Ruler className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                    <input
-                                        type="text"
-                                        value={area}
-                                        disabled
-                                        className="w-full pr-10 pl-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-right"
-                                    />
+                                    <input type="text" value={area} disabled
+                                        className="w-full pr-10 pl-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-right" />
                                 </div>
                             </div>
                         </div>
@@ -466,18 +617,14 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                             <Building2 className="w-5 h-5 shrink-0 mt-0.5" />
                             <span>این ساختمان دارای {units.length} واحد می‌باشد.</span>
                         </div>
-
                         <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
                             {units.map((unit) => (
-                                <div
-                                    key={unit.id}
-                                    onClick={() => setSelectedUnit(unit)}
+                                <div key={unit.id} onClick={() => setSelectedUnit(unit)}
                                     className={`border rounded-xl p-4 cursor-pointer transition-all duration-200 ${
                                         selectedUnit?.id === unit.id
                                             ? 'border-[#145d6e] bg-[#145d6e]/5 ring-1 ring-[#145d6e]'
                                             : 'border-gray-200 hover:border-gray-300 bg-white'
-                                    }`}
-                                >
+                                    }`}>
                                     <div className="flex justify-between items-start mb-3">
                                         <div className="flex items-center gap-2">
                                             <span className="text-xs text-gray-500">کد نوسازی:</span>
@@ -494,10 +641,9 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                                             <span className="text-gray-500 text-xs block">طبقه</span>
                                             <span className="font-medium">{unit.sakhteman || '-'}</span>
                                         </div>
-
                                         <div>
                                             <span className="text-gray-500 text-xs block">زیربنا (متر)</span>
-                                            <span className="font-medium">{unit.Zirbana?.toLocaleString() || '-'}</span>
+                                            <span className="font-medium">{unit.area?.toLocaleString() || '-'}</span>
                                         </div>
                                     </div>
                                     {unit.nameMalek && (
@@ -519,14 +665,14 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                                 <span className="font-mono text-[#145d6e] text-lg">{selectedUnit?.codeN || units[0]?.codeN}</span>
                             </div>
                             <div className="flex flex-wrap gap-4 text-sm">
-                <span>
-                  <span className="text-gray-500 text-lg">مالک:</span>{' '}
-                  <span className="text-right text-lg" dir="rtl">{selectedUnit?.nameMalek || ownerName || 'نامشخص'}</span>
-                </span>
-                                <span className={"text-lg"}>
-                  <span className="text-gray-500 text-lg">مساحت:</span>{' '}
+                                <span>
+                                    <span className="text-gray-500 text-lg">مالک:</span>{' '}
+                                    <span className="text-right text-lg" dir="rtl">{selectedUnit?.nameMalek || ownerName || 'نامشخص'}</span>
+                                </span>
+                                <span className="text-lg">
+                                    <span className="text-gray-500 text-lg">مساحت:</span>{' '}
                                     {selectedUnit?.area?.toLocaleString() || area || 'نامشخص'} متر
-                </span>
+                                </span>
                             </div>
                         </div>
 
@@ -535,65 +681,33 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                             لیست عوارض قابل پرداخت
                         </h3>
 
-                        {/* کارت عوارض نوسازی */}
-                        <div className="border border-gray-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:shadow-md transition-shadow bg-white">
-                            <div className="flex items-center gap-4 flex-1">
-                                <div className="w-12 h-12 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
-                                    <img src="/images/sharhdari-2.png" className="w-12 h-12" alt="" />
+                        {[
+                            { type: 'nosazi' as const, title: 'عوارض نوسازی و عمران شهری', amount: chargeAmount },
+                            { type: 'pasmand' as const, title: 'بهای خدمات مدیریت پسماند', amount: pasmandAmount }
+                        ].map(({ type, title, amount }) => (
+                            <div key={type} className="border border-gray-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:shadow-md transition-shadow bg-white">
+                                <div className="flex items-center gap-4 flex-1">
+                                    <div className="w-12 h-12 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
+                                        <img src="/images/sharhdari-2.png" className="w-12 h-12" alt="" />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-gray-800">{title}</h4>
+                                        <p className="text-sm text-gray-500">
+                                            مبلغ: <span className={amount ? 'text-gray-800' : 'text-gray-400'}>
+                                                {amount ? `${amount.toLocaleString()} ریال` : '-'}
+                                            </span>
+                                        </p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h4 className="text-gray-800">عوارض نوسازی و عمران شهری</h4>
-                                    <p className="text-sm text-gray-500">
-                                        مبلغ:
-                                        <span className={`text-gray-800 ${!chargeAmount ? 'text-gray-400' : ''}`}>
-                      {chargeAmount ? `${chargeAmount.toLocaleString()} ریال` : '-'}
-                    </span>
-                                    </p>
-                                </div>
+                                <button onClick={() => handleSelectCharge(type)} disabled={!amount}
+                                    className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-colors shrink-0 flex items-center gap-2 ${
+                                        amount ? 'bg-[#145d6e] hover:bg-[#1a7a8f] text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                    }`}>
+                                    جزئیات و پرداخت
+                                    <ChevronRight className="w-4 h-4 rotate-180" />
+                                </button>
                             </div>
-                            <button
-                                onClick={() => handleSelectCharge('nosazi')}
-                                disabled={!chargeAmount}
-                                className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-colors shrink-0 flex items-center gap-2 ${
-                                    chargeAmount
-                                        ? 'bg-[#145d6e] hover:bg-[#1a7a8f] text-white'
-                                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                }`}
-                            >
-                                جزئیات و پرداخت
-                                <ChevronRight className="w-4 h-4 rotate-180" />
-                            </button>
-                        </div>
-
-                        {/* کارت عوارض پسماند */}
-                        <div className="border border-gray-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:shadow-md transition-shadow bg-white">
-                            <div className="flex items-center gap-4 flex-1">
-                                <div className="w-12 h-12 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
-                                    <img src="/images/sharhdari-2.png" className="w-12 h-12" alt="" />
-                                </div>
-                                <div>
-                                    <h4 className="text-gray-800">بهای خدمات مدیریت پسماند</h4>
-                                    <p className="text-sm text-gray-500">
-                                        مبلغ:
-                                        <span className={`text-gray-800 ${!pasmandAmount ? 'text-gray-400' : ''}`}>
-                      {pasmandAmount ? `${pasmandAmount.toLocaleString()} ریال` : '-'}
-                    </span>
-                                    </p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => handleSelectCharge('pasmand')}
-                                disabled={!pasmandAmount}
-                                className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-colors shrink-0 flex items-center gap-2 ${
-                                    pasmandAmount
-                                        ? 'bg-[#145d6e] hover:bg-[#1a7a8f] text-white'
-                                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                }`}
-                            >
-                                جزئیات و پرداخت
-                                <ChevronRight className="w-4 h-4 rotate-180" />
-                            </button>
-                        </div>
+                        ))}
 
                         {!chargeAmount && !pasmandAmount && (
                             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800 flex items-start gap-2">
@@ -614,8 +728,8 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                             <div className="flex items-center justify-between pt-3 border-t border-gray-200">
                                 <span className="text-base text-gray-700">مبلغ قابل پرداخت</span>
                                 <span className={`text-xl ${selectedCharge.amount ? 'text-green-600' : 'text-gray-400'}`}>
-                  {selectedCharge.amount ? `${selectedCharge.amount.toLocaleString()} ریال` : '-'}
-                </span>
+                                    {selectedCharge.amount ? `${selectedCharge.amount.toLocaleString()} ریال` : '-'}
+                                </span>
                             </div>
                         </div>
 
@@ -627,30 +741,21 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                         )}
 
                         <div className="border border-gray-200 rounded-xl overflow-hidden">
-                            <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50/50">
-                                <button
-                                    onClick={() => handleCopy(selectedCharge.billId || '', 'bill')}
-                                    className="w-10 h-10 bg-white border border-gray-300 rounded-lg flex items-center justify-center hover:bg-gray-50 transition-all group"
-                                >
-                                    {copiedField === 'bill' ? <Check className="w-5 h-5 text-green-600" /> : <Copy className="w-5 h-5 text-gray-600" />}
-                                </button>
-                                <div className="flex items-center gap-3">
-                                    <span className="text-sm text-gray-500">شناسه قبض</span>
-                                    <span className="text-lg font-mono text-gray-800">{selectedCharge.billId || '-'}</span>
+                            {[
+                                { label: 'شناسه قبض', value: selectedCharge.billId, key: 'bill' },
+                                { label: 'شناسه پرداخت', value: selectedCharge.paymentId, key: 'payment' }
+                            ].map(({ label, value, key }, i) => (
+                                <div key={key} className={`flex items-center justify-between p-4 ${i === 0 ? 'border-b border-gray-200 bg-gray-50/50' : ''}`}>
+                                    <button onClick={() => handleCopy(value || '', key)}
+                                        className="w-10 h-10 bg-white border border-gray-300 rounded-lg flex items-center justify-center hover:bg-gray-50 transition-all">
+                                        {copiedField === key ? <Check className="w-5 h-5 text-green-600" /> : <Copy className="w-5 h-5 text-gray-600" />}
+                                    </button>
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-sm text-gray-500">{label}</span>
+                                        <span className="text-lg font-mono text-gray-800">{value || '-'}</span>
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="flex items-center justify-between p-4">
-                                <button
-                                    onClick={() => handleCopy(selectedCharge.paymentId || '', 'payment')}
-                                    className="w-10 h-10 bg-white border border-gray-300 rounded-lg flex items-center justify-center hover:bg-gray-50 transition-all group"
-                                >
-                                    {copiedField === 'payment' ? <Check className="w-5 h-5 text-green-600" /> : <Copy className="w-5 h-5 text-gray-600" />}
-                                </button>
-                                <div className="flex items-center gap-3">
-                                    <span className="text-sm text-gray-500">شناسه پرداخت</span>
-                                    <span className="text-lg font-mono text-gray-800">{selectedCharge.paymentId || '-'}</span>
-                                </div>
-                            </div>
+                            ))}
                         </div>
 
                         {copiedField && (
@@ -665,7 +770,9 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
     return createPortal(
         <>
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" style={{ zIndex: 99998 }} />
-            <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col bg-white rounded-2xl shadow-2xl" style={{ zIndex: 99999 }} dir="rtl">
+            <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col bg-white rounded-2xl shadow-2xl"
+                style={{ zIndex: 99999 }} dir="rtl">
+
                 <div className="bg-gradient-to-r from-[#145d6e] to-[#1a7a8f] px-6 py-4 text-white flex justify-between items-center shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="bg-white/20 p-2 rounded-lg">
@@ -681,74 +788,53 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                    {renderContent()}
-                </div>
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">{renderContent()}</div>
 
                 <div className="p-6 border-t border-gray-200 bg-gray-50 shrink-0 flex justify-between items-center gap-3">
                     {step > 1 && step < 4 && (
-                        <button
-                            onClick={() => setStep((prev) => (prev - 1) as any)}
-                            className="px-6 py-2.5 rounded-xl font-medium border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors"
-                        >
+                        <button onClick={() => setStep((prev) => (prev - 1) as any)}
+                            className="px-6 py-2.5 rounded-xl font-medium border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors">
                             بازگشت
                         </button>
                     )}
                     {step === 1 && !isLoading && !apiError && (
-                        <button
-                            onClick={() => setStep(2)}
-                            className="mr-auto px-8 py-2.5 rounded-xl font-medium bg-[#145d6e] text-white hover:bg-[#1a7a8f] transition-colors flex items-center gap-2"
-                        >
+                        <button onClick={() => setStep(2)}
+                            className="mr-auto px-8 py-2.5 rounded-xl font-medium bg-[#145d6e] text-white hover:bg-[#1a7a8f] transition-colors flex items-center gap-2">
                             تایید اطلاعات
                             <ChevronRight className="w-4 h-4 rotate-180" />
                         </button>
                     )}
                     {step === 2 && (
-                        <button
-                            onClick={() => selectedUnit && setStep(3)}
-                            disabled={!selectedUnit}
+                        <button onClick={() => selectedUnit && setStep(3)} disabled={!selectedUnit}
                             className={`mr-auto px-8 py-2.5 rounded-xl font-medium transition-colors flex items-center gap-2 ${
                                 selectedUnit ? 'bg-[#145d6e] text-white hover:bg-[#1a7a8f]' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                            }`}
-                        >
+                            }`}>
                             ادامه و انتخاب عوارض
                             <ChevronRight className="w-4 h-4 rotate-180" />
                         </button>
                     )}
                     {step === 3 && (
-                        <button
-                            onClick={onClose}
-                            className="mr-auto px-6 py-2.5 rounded-xl font-medium border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors"
-                        >
+                        <button onClick={onClose}
+                            className="mr-auto px-6 py-2.5 rounded-xl font-medium border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors">
                             انصراف
                         </button>
                     )}
                     {step === 4 && (
                         <div className="flex gap-3 w-full justify-end">
-                            <button
-                                onClick={handlePrintReceipt}
-                                className="px-5 py-2.5 rounded-xl font-medium border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-2"
-                            >
+                            <button onClick={handlePrintReceipt}
+                                className="px-5 py-2.5 rounded-xl font-medium border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-2">
                                 <Printer className="w-4 h-4" /> چاپ رسید
                             </button>
-                            <button
-                                onClick={handlePayment}
-                                disabled={isProcessing || !selectedCharge?.amount}
+                            <button onClick={handlePayment} disabled={isProcessing || !selectedCharge?.amount}
                                 className={`flex-1 max-w-xs py-2.5 rounded-xl font-medium transition-all duration-200 flex items-center justify-center gap-2 text-white ${
                                     isProcessing || !selectedCharge?.amount
                                         ? 'bg-gray-400 cursor-not-allowed'
                                         : 'bg-[#145d6e] hover:bg-[#1a7a8f] hover:shadow-lg'
-                                }`}
-                            >
+                                }`}>
                                 {isProcessing ? (
-                                    <>
-                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                        در حال پردازش...
-                                    </>
+                                    <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> در حال پردازش...</>
                                 ) : (
-                                    <>
-                                        <CheckCircle className="w-4 h-4" /> تایید و پرداخت
-                                    </>
+                                    <><CheckCircle className="w-4 h-4" /> تایید و پرداخت</>
                                 )}
                             </button>
                         </div>
