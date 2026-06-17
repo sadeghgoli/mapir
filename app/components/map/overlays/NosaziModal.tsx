@@ -631,18 +631,18 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                             <Building2 className="w-5 h-5 shrink-0 mt-0.5" />
                             <span>این ساختمان دارای {units.length} واحد می‌باشد.</span>
                         </div>
-                        <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                        <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
                             {units.map((unit) => (
                                 <div key={unit.id} onClick={() => setSelectedUnit(unit)}
                                      className={`border rounded-xl p-4 cursor-pointer transition-all duration-200 ${
                                          selectedUnit?.id === unit.id
                                              ? 'border-[#145d6e] bg-[#145d6e]/5 ring-1 ring-[#145d6e]'
-                                             : 'border-gray-200 hover:border-gray-300 bg-white'
+                                             : 'border-gray-200 hover:border-gray-300 bg-white hover:shadow-md'
                                      }`}>
                                     <div className="flex justify-between items-start mb-3">
                                         <div className="flex items-center gap-2">
                                             <span className="text-xs text-gray-500">کد نوسازی:</span>
-                                            <span className="font-mono text-gray-800">{unit.codeN}</span>
+                                            <span className="font-mono text-gray-800 text-sm">{unit.codeN}</span>
                                         </div>
                                         <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
                                             selectedUnit?.id === unit.id ? 'border-[#145d6e] bg-[#145d6e]' : 'border-gray-300'
@@ -650,21 +650,55 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                                             {selectedUnit?.id === unit.id && <Check className="w-3 h-3 text-white" />}
                                         </div>
                                     </div>
-                                    <div className="grid grid-cols-3 gap-4 text-sm">
+
+                                    {/* نمایش نام مالک به صورت درشت */}
+                                    <div className="mb-3 pb-3 border-b border-gray-100">
+                                        <div className="flex items-center gap-2">
+                                            <Users className="w-4 h-4 text-[#145d6e]" />
+                                            <span className="text-sm text-gray-500">مالک:</span>
+                                            <span className="text-base font-bold text-gray-800">
+                                {unit.nameMalek || 'نامشخص'}
+                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4 text-sm">
                                         <div>
                                             <span className="text-gray-500 text-xs block">طبقه</span>
-                                            <span className="font-medium">
-                                                {unit.tabaghe || '-'}
-                                            </span>
+                                            <span className="font-medium text-gray-700">
+                                {unit.tabaghe || '-'}
+                            </span>
                                         </div>
                                         <div>
                                             <span className="text-gray-500 text-xs block">زیربنا (متر)</span>
-                                            <span className="font-medium">{unit.area?.toLocaleString() || '-'}</span>
+                                            <span className="font-medium text-gray-700">
+                                {unit.area?.toLocaleString() || '-'}
+                            </span>
                                         </div>
                                     </div>
-                                    {unit.nameMalek && (
-                                        <div className="mt-3 pt-2 border-t border-gray-100 text-xs text-gray-500 text-right" dir="rtl">
-                                            مالک: {unit.nameMalek}
+
+                                    {/* نمایش آدرس هر واحد */}
+                                    {unit.address && unit.address !== 'آدرس ثبت نشده' && (
+                                        <div className="mt-3 pt-3 border-t border-gray-100">
+                                            <div className="flex items-start gap-2">
+                                                <MapPin className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+                                                <div>
+                                                    <span className="text-xs text-gray-500 block mb-0.5">آدرس واحد:</span>
+                                                    <span className="text-sm text-gray-700 leading-relaxed" dir="rtl">
+                                        {unit.address}
+                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* در صورت عدم وجود آدرس، پیام نمایش داده شود */}
+                                    {(!unit.address || unit.address === 'آدرس ثبت نشده') && (
+                                        <div className="mt-3 pt-3 border-t border-gray-100">
+                                            <div className="flex items-start gap-2">
+                                                <MapPin className="w-4 h-4 text-gray-300 shrink-0 mt-0.5" />
+                                                <span className="text-xs text-gray-400">آدرس برای این واحد ثبت نشده است</span>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
