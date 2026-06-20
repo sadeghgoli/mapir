@@ -121,7 +121,7 @@ const PaymentHistoryModal = ({ isOpen, onClose }: PaymentHistoryModalProps) => {
                     </div>
 
                     <div className="flex flex-col p-4 bg-gray-50" dir="rtl">
-                        <div className="p-2 flex justify-between items-center mb-3">
+                        <div className="p-2 flex flex-col md:flex-row justify-between items-center mb-3">
                             <p className="font-bold text-gray-700">
                                 {totalCount > 0 ? `${totalCount} تراکنش موجود است` : 'هیچ تراکنشی موجود نیست'}
                             </p>
@@ -182,7 +182,7 @@ const PaymentHistoryModal = ({ isOpen, onClose }: PaymentHistoryModalProps) => {
                                         <div className="w-24 text-center">وضعیت</div>
                                     </div>
 
-                                    <div className="max-h-[300px] md:max-h-[600px] overflow-y-auto">
+                                    <div className="max-h-[300px] md:max-h-[400px] overflow-y-auto">
                                         <div className="overflow-x-auto">
                                             <table className="w-full min-w-[800px] ">
                                                 <tbody className="divide-y divide-gray-100">
