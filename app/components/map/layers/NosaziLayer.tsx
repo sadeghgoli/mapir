@@ -597,18 +597,13 @@ export default function NosaziLayer({ onLoadingChange }: NosaziLayerProps) {
                         padding: '14px',
                         direction: 'rtl'
                     }}>
-                        <div style={{ borderBottom: '2px solid #e5e7eb', paddingBottom: '10px', marginBottom: '10px' }}>
+                        <div>
                             <div style={{ fontSize: '12px', fontWeight: '600', color: '#6b7280' }}>کد نوسازی</div>
                             <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#2563eb' }}>
                                 {tooltipData.nosaziCode}
                             </div>
                         </div>
-                        <div>
-                            <div style={{ fontSize: '12px', fontWeight: '600', color: '#6b7280', marginBottom: '6px' }}>آدرس :</div>
-                            <div style={{ fontSize: '13px', color: '#374151', lineHeight: '1.6' }}>
-                                {tooltipData.address}
-                            </div>
-                        </div>
+
                     </div>
                 </div>
             )}

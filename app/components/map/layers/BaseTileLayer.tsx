@@ -13,7 +13,7 @@ export default function BaseTileLayer() {
         <TileLayer
             url="https://osm.sabzevar.ir:4443/tile/raster/{z}/{x}/{y}.png"
             // url="https://osm.sabzevar.ir:4443/tile/raster/{z}/{x}/{y}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            attribution=''
             maxZoom={19}
             minZoom={1}
         />
