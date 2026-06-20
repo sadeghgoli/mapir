@@ -182,9 +182,9 @@ const PaymentHistoryModal = ({ isOpen, onClose }: PaymentHistoryModalProps) => {
                                         <div className="w-24 text-center">وضعیت</div>
                                     </div>
 
-                                    <div className="max-h-[600px] overflow-y-auto">
+                                    <div className="max-h-[300px] md:max-h-[600px] overflow-y-auto">
                                         <div className="overflow-x-auto">
-                                            <table className="w-full min-w-[800px]">
+                                            <table className="w-full min-w-[800px] ">
                                                 <tbody className="divide-y divide-gray-100">
                                                     {filteredData.map((row, index) => (
                                                         <tr key={index} className="hover:bg-gray-50 transition-colors">
