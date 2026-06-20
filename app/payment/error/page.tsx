@@ -146,7 +146,9 @@ export default function PaymentFailurePage() {
                         بازگشت به نقشه
                     </button>
 
-                
+                    <div className="flex gap-3">
+                      
+                    </div>
                 </div>
 
                 <div className="mt-6 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
