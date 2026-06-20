@@ -109,7 +109,7 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
     }, []);
 
     const checkIfSaved = useCallback(async (code: string) => {
-        if (!isAuthenticated) return;
+        // if (!isAuthenticated) return;
         const token = getToken();
         if (!token) return;
 
@@ -272,80 +272,110 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                 return;
             }
 
-            const isVilla = rawData.length === 2;
+            // ====== تغییر مهم: تفکیک بهتر داده‌ها ======
+
+            // 1. پیدا کردن آیتم اصلی (code_tree === 0) برای اطلاعات پایه
+            const landItem = rawData.find(item => item.code_tree === 0 || item.codeN?.endsWith('-0-0-0'));
+
+            // 2. پیدا کردن آیتم‌های واحدها (code_tree !== 0)
+            const unitItems = rawData.filter(item => item.code_tree !== 0 && item.codeN?.includes('-'));
+
+            // 3. پیدا کردن آیتمی که اطلاعات پسماند دارد
+            const pasmandItem = unitItems.find(item =>
+                item.Pmablagh && Number(item.Pmablagh) > 0 &&
+                item.PShenaseGhabz && item.PShenasePardakht
+            ) || unitItems.find(item =>
+                item.Pmablagh && Number(item.Pmablagh) > 0
+            );
+
+            // 4. پیدا کردن آیتمی که اطلاعات نوسازی دارد
+            const nosaziItem = unitItems.find(item =>
+                item.Nmablagh && Number(item.Nmablagh) > 0 &&
+                item.NShenaseGhabz && item.NShenasePardakht
+            ) || unitItems.find(item =>
+                item.Nmablagh && Number(item.Nmablagh) > 0
+            ) || unitItems[0];
+
+            // ساخت لیست واحدها
             let transformedUnits: BuildingUnit[] = [];
 
-            if (isVilla) {
-                transformedUnits = rawData
-                    .filter(item => {
-                        const parts = item.codeN?.split('-');
-                        return parts && parts.length === 7 && parts[4] === '0' && parts[5] === '0';
-                    })
-                    .map((item, index) => ({
-                        id: item.shop || index,
-                        codeN: formatCodeN(item.codeN || ''),
-                        shop: typeof item.shop === 'number' ? item.shop : 0,
-                        sakhteman: extractFloorFromCode(item.codeN || ''),
-                        tabaghe: decodePersianText(item.Tabaghe), // خواندن عنوان طبقه از فیلد Tabaghe
-                        apar: extractUnitFromCode(item.codeN || ''),
-                        area: typeof item.MasahatZamin === 'number' ? item.MasahatZamin : 0,
-                        nameMalek: decodePersianText(item.Name_Malek),
-                        address: decodePersianText(item.neshani_melk),
-                        billId: item.NShenaseGhabz || null,
-                        paymentId: item.NShenasePardakht || null,
-                        amount: item.Nmablagh ? Number(item.Nmablagh) : null,
-                        pasmandAmount: item.Pmablagh ? Number(item.Pmablagh) : null,
-                        pasmandBillId: item.PShenaseGhabz || null,
-                        pasmandPaymentId: item.PShenasePardakht || null
-                    }));
+            // اگر فقط یک واحد داریم (ویلا)
+            if (unitItems.length === 1 || rawData.length === 2) {
+                const mainUnit = unitItems[0] || rawData[1] || rawData[0];
+                transformedUnits = [{
+                    id: mainUnit.shop || 1,
+                    codeN: formatCodeN(mainUnit.codeN || ''),
+                    shop: typeof mainUnit.shop === 'number' ? mainUnit.shop : 0,
+                    sakhteman: extractFloorFromCode(mainUnit.codeN || ''),
+                    tabaghe: decodePersianText(mainUnit.Tabaghe),
+                    apar: extractUnitFromCode(mainUnit.codeN || ''),
+                    area: typeof mainUnit.MasahatZamin === 'number' ? mainUnit.MasahatZamin : 0,
+                    nameMalek: decodePersianText(mainUnit.Name_Malek),
+                    address: decodePersianText(mainUnit.neshani_melk),
+                    billId: mainUnit.NShenaseGhabz || null,
+                    paymentId: mainUnit.NShenasePardakht || null,
+                    amount: mainUnit.Nmablagh ? Number(mainUnit.Nmablagh) : null,
+                    pasmandAmount: mainUnit.Pmablagh ? Number(mainUnit.Pmablagh) : null,
+                    pasmandBillId: mainUnit.PShenaseGhabz || null,
+                    pasmandPaymentId: mainUnit.PShenasePardakht || null
+                }];
             } else {
-                transformedUnits = rawData
-                    .filter(item => {
-                        const parts = item.codeN?.split('-');
-                        return parts && parts.length === 7 && parts[5] !== '0';
-                    })
-                    .map((item, index) => ({
-                        id: item.shop || index,
-                        codeN: formatCodeN(item.codeN || ''),
-                        shop: typeof item.shop === 'number' ? item.shop : 0,
-                        sakhteman: extractFloorFromCode(item.codeN || ''),
-                        tabaghe: decodePersianText(item.Tabaghe), // خواندن عنوان طبقه از فیلد Tabaghe
-                        apar: extractUnitFromCode(item.codeN || ''),
-                        area: typeof item.MasahatZamin === 'number' ? item.MasahatZamin : 0,
-                        nameMalek: decodePersianText(item.Name_Malek),
-                        address: decodePersianText(item.neshani_melk),
-                        billId: item.NShenaseGhabz || null,
-                        paymentId: item.NShenasePardakht || null,
-                        amount: item.Nmablagh ? Number(item.Nmablagh) : null,
-                        pasmandAmount: item.Pmablagh ? Number(item.Pmablagh) : null,
-                        pasmandBillId: item.PShenaseGhabz || null,
-                        pasmandPaymentId: item.PShenasePardakht || null
-                    }));
+                // چند واحد
+                transformedUnits = unitItems.map((item, index) => ({
+                    id: item.shop || index + 1,
+                    codeN: formatCodeN(item.codeN || ''),
+                    shop: typeof item.shop === 'number' ? item.shop : 0,
+                    sakhteman: extractFloorFromCode(item.codeN || ''),
+                    tabaghe: decodePersianText(item.Tabaghe),
+                    apar: extractUnitFromCode(item.codeN || ''),
+                    area: typeof item.MasahatZamin === 'number' ? item.MasahatZamin : 0,
+                    nameMalek: decodePersianText(item.Name_Malek),
+                    address: decodePersianText(item.neshani_melk),
+                    billId: item.NShenaseGhabz || null,
+                    paymentId: item.NShenasePardakht || null,
+                    amount: item.Nmablagh ? Number(item.Nmablagh) : null,
+                    pasmandAmount: item.Pmablagh ? Number(item.Pmablagh) : null,
+                    pasmandBillId: item.PShenaseGhabz || null,
+                    pasmandPaymentId: item.PShenasePardakht || null
+                }));
             }
 
             setUnits(transformedUnits);
 
-            const landItem = rawData.find(item => item.code_tree === 0 || item.codeN?.endsWith('-0-0-0'));
+            // ====== تغییر مهم: تنظیم اطلاعات پایه از آیتم اصلی ======
+            const baseInfo = landItem || rawData[0];
             const resolvedLandCode = landItem ? formatCodeN(landItem.codeN || '') : formatCodeN(nosaziData.code);
             setLandCode(resolvedLandCode);
 
-            const baseInfo = landItem || transformedUnits.find(item => item.nameMalek || item.address) || rawData[0];
-            setOwnerName(decodePersianText(baseInfo.Name_Malek) || nosaziData.ownerName || 'نامشخص');
-            setArea((typeof baseInfo.MasahatZamin === 'number' ? baseInfo.MasahatZamin.toString() : baseInfo.MasahatZamin) || nosaziData.area || 'نامشخص');
-            setAddress(decodePersianText(baseInfo.neshani_melk) || nosaziData.address || 'آدرس ثبت نشده');
+            // تنظیم اطلاعات مالک و آدرس
+            setOwnerName(decodePersianText(baseInfo?.Name_Malek) || nosaziData.ownerName || 'نامشخص');
+            setArea((typeof baseInfo?.MasahatZamin === 'number' ? baseInfo.MasahatZamin.toString() : baseInfo?.MasahatZamin) || nosaziData.area || 'نامشخص');
+            setAddress(decodePersianText(baseInfo?.neshani_melk) || nosaziData.address || 'آدرس ثبت نشده');
 
-            const payableItem = transformedUnits.find(item => item.billId && item.paymentId) || transformedUnits[0];
-            if (payableItem?.billId && payableItem?.paymentId) {
-                setBillId(payableItem.billId);
-                setPaymentId(payableItem.paymentId);
-                setChargeAmount(payableItem.amount);
-                setPasmandAmount(payableItem.pasmandAmount);
-                setPasmandBillId(payableItem.pasmandBillId || '');
-                setPasmandPaymentId(payableItem.pasmandPaymentId || '');
+            // ====== تغییر مهم: تنظیم اطلاعات نوسازی و پسماند از آیتم‌های مربوطه ======
+            // تنظیم اطلاعات نوسازی
+            if (nosaziItem) {
+                setBillId(nosaziItem.NShenaseGhabz || null);
+                setPaymentId(nosaziItem.NShenasePardakht || null);
+                setChargeAmount(nosaziItem.Nmablagh ? Number(nosaziItem.Nmablagh) : null);
             } else if (nosaziData.billId && nosaziData.paymentId) {
                 setBillId(nosaziData.billId);
                 setPaymentId(nosaziData.paymentId);
                 setChargeAmount(nosaziData.amount || null);
+            }
+
+            // تنظیم اطلاعات پسماند
+            if (pasmandItem) {
+                setPasmandBillId(pasmandItem.PShenaseGhabz || '');
+                setPasmandPaymentId(pasmandItem.PShenasePardakht || '');
+                setPasmandAmount(pasmandItem.Pmablagh ? Number(pasmandItem.Pmablagh) : null);
+            } else {
+                // اگر پسماند در واحدها نبود، از آیتم اصلی استفاده کن
+                if (baseInfo?.PShenaseGhabz && baseInfo?.PShenasePardakht) {
+                    setPasmandBillId(baseInfo.PShenaseGhabz);
+                    setPasmandPaymentId(baseInfo.PShenasePardakht);
+                    setPasmandAmount(baseInfo.Pmablagh ? Number(baseInfo.Pmablagh) : null);
+                }
             }
 
             await checkIfSaved(resolvedLandCode);
