@@ -11,7 +11,7 @@ const TileLayer = dynamic(
 export default function BaseTileLayer() {
     return (
         <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            url="https://osm.sabzevar.ir:4443/tile/raster/{z}/{x}/{y}.png"
             // url="https://osm.sabzevar.ir:4443/tile/raster/{z}/{x}/{y}.png"
             attribution=''
             maxZoom={19}
