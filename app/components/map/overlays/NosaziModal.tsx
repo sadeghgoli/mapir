@@ -197,6 +197,64 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
         return btoa(binary);
     };
 
+
+    // اضافه کردن این تابع در داخل کامپوننت NosaziModal
+    const registerView = useCallback(async (code: string) => {
+        const token = getToken();
+        if (!token || !isAuthenticated) return;
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/view`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    locationCode: code
+                })
+            });
+
+            if (!response.ok) {
+                console.error('Failed to register view:', response.status);
+            }
+        } catch (err) {
+            console.error('Error registering view:', err);
+        }
+    }, [isAuthenticated, getToken]);
+
+    // در useEffect مربوط به fetchNosaziInfo، بعد از تنظیم اطلاعات
+    useEffect(() => {
+        if (isOpen && nosaziData.code) {
+            document.body.style.overflow = 'hidden';
+            setStep(1);
+            setSelectedUnit(null);
+            setSelectedCharge(null);
+            setApiError(null);
+            setLandCode('');
+            setIsSaved(false);
+            setSaveMessage(null);
+
+            if (isAuthenticated) {
+                // ✅ دریافت اطلاعات و سپس ثبت بازدید
+                const loadData = async () => {
+                    await fetchNosaziInfo(nosaziData.code);
+                    // بعد از بارگذاری اطلاعات، بازدید را ثبت کن
+                    const codeToView = landCode || formatCodeN(nosaziData.code);
+                    if (codeToView) {
+                        registerView(codeToView);
+                    }
+                };
+                loadData();
+            } else {
+                setIsLoading(false);
+            }
+        } else {
+            document.body.style.overflow = 'unset';
+        }
+        return () => { document.body.style.overflow = 'unset'; };
+    }, [isOpen, nosaziData.code, isAuthenticated]);
+
     const decodePersianText = (text: string | null): string | null => {
         if (!text) return null;
         try {
