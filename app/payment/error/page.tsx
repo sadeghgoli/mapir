@@ -136,15 +136,7 @@ export default function PaymentFailurePage() {
                 )}
 
                 <div className="space-y-3">
-                    {paymentInfo && (
-                        <button
-                            onClick={handleRetryPayment}
-                            className="w-full py-3 bg-[#145d6e] text-white rounded-xl font-medium hover:bg-[#1a7a8f] transition-all transform hover:scale-[1.02] flex items-center justify-center gap-2"
-                        >
-                            <RefreshCw className="w-5 h-5" />
-                            تلاش مجدد
-                        </button>
-                    )}
+                   
 
                     <button
                         onClick={handleGoHome}
@@ -154,22 +146,7 @@ export default function PaymentFailurePage() {
                         بازگشت به نقشه
                     </button>
 
-                    <div className="flex gap-3">
-                        <button
-                            onClick={() => router.push('/payment/history')}
-                            className="flex-1 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5"
-                        >
-                            <CreditCard className="w-4 h-4" />
-                            تاریخچه
-                        </button>
-                        <button
-                            onClick={handleContactSupport}
-                            className="flex-1 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5"
-                        >
-                            <HelpCircle className="w-4 h-4" />
-                            پشتیبانی
-                        </button>
-                    </div>
+                
                 </div>
 
                 <div className="mt-6 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
