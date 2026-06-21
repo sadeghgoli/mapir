@@ -477,8 +477,22 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
     }, [isOpen, nosaziData.code, isAuthenticated]);
 
     const handlePayment = async () => {
-        if (!selectedCharge?.amount || !selectedCharge.billId || !selectedCharge.paymentId) {
-            setSaveMessage({ text: 'اطلاعات پرداخت ناقص است', type: 'error' });
+        if (!selectedCharge?.amount || !selectedCharge?.billId || !selectedCharge?.paymentId) {
+            setSaveMessage({
+                text: 'اطلاعات پرداخت ناقص است یا عوارض تسویه شده است',
+                type: 'error'
+            });
+            setTimeout(() => setSaveMessage(null), 3000);
+            return;
+        }
+
+        // بررسی مجدد وجود شناسه قبض و پرداخت
+        if (selectedCharge.billId === '0' || selectedCharge.billId === 'null' || selectedCharge.billId === '-' ||
+            selectedCharge.paymentId === '0' || selectedCharge.paymentId === 'null' || selectedCharge.paymentId === '-') {
+            setSaveMessage({
+                text: 'اطلاعات پرداخت نامعتبر است',
+                type: 'error'
+            });
             setTimeout(() => setSaveMessage(null), 3000);
             return;
         }
@@ -545,23 +559,48 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
         if (!targetUnit) return;
 
         if (type === 'nosazi') {
+            // بررسی وجود شناسه قبض و شناسه پرداخت
+            const billId = targetUnit.billId || billId;
+            const paymentId = targetUnit.paymentId || paymentId;
+            const amount = targetUnit.amount || chargeAmount;
+
+            // اگر شناسه قبض یا شناسه پرداخت وجود نداشت، پرداخت انجام نشود
+            if (!billId || !paymentId || billId === '0' || billId === 'null' || billId === '-' ||
+                !paymentId || paymentId === '0' || paymentId === 'null' || paymentId === '-') {
+                setSaveMessage({ text: 'اطلاعات پرداخت ناقص است یا عوارض تسویه شده است', type: 'error' });
+                setTimeout(() => setSaveMessage(null), 3000);
+                return;
+            }
+
             setSelectedCharge({
                 id: 'nosazi',
                 type: 'nosazi',
                 title: 'عوارض نوسازی و عمران',
-                amount: targetUnit.amount, // از واحد انتخاب شده استفاده کن
-                billId: targetUnit.billId || '-',
-                paymentId: targetUnit.paymentId || '-',
+                amount: amount,
+                billId: billId,
+                paymentId: paymentId,
                 icon: '/images/sharhdari-2.png'
             });
         } else {
+            // بررسی وجود شناسه قبض و شناسه پرداخت برای پسماند
+            const billId = targetUnit.pasmandBillId || pasmandBillId;
+            const paymentId = targetUnit.pasmandPaymentId || pasmandPaymentId;
+            const amount = targetUnit.pasmandAmount || pasmandAmount;
+
+            if (!billId || !paymentId || billId === '0' || billId === 'null' || billId === '-' ||
+                !paymentId || paymentId === '0' || paymentId === 'null' || paymentId === '-') {
+                setSaveMessage({ text: 'اطلاعات پرداخت پسماند ناقص است یا عوارض تسویه شده است', type: 'error' });
+                setTimeout(() => setSaveMessage(null), 3000);
+                return;
+            }
+
             setSelectedCharge({
                 id: 'pasmand',
                 type: 'pasmand',
                 title: 'عوارض پسماند',
-                amount: targetUnit.pasmandAmount, // از واحد انتخاب شده استفاده کن
-                billId: targetUnit.pasmandBillId || '-',
-                paymentId: targetUnit.pasmandPaymentId || '-',
+                amount: amount,
+                billId: billId,
+                paymentId: paymentId,
                 icon: '/images/sharhdari-2.png'
             });
         }
@@ -827,42 +866,98 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                             {
                                 type: 'nosazi' as const,
                                 title: 'عوارض نوسازی و عمران شهری',
-                                amount: selectedUnit?.amount || chargeAmount // اولویت با واحد انتخاب شده
+                                amount: selectedUnit?.amount || chargeAmount,
+                                billId: selectedUnit?.billId || billId,
+                                paymentId: selectedUnit?.paymentId || paymentId
                             },
                             {
                                 type: 'pasmand' as const,
                                 title: 'بهای خدمات مدیریت پسماند',
-                                amount: selectedUnit?.pasmandAmount || pasmandAmount // اولویت با واحد انتخاب شده
+                                amount: selectedUnit?.pasmandAmount || pasmandAmount,
+                                billId: selectedUnit?.pasmandBillId || pasmandBillId,
+                                paymentId: selectedUnit?.pasmandPaymentId || pasmandPaymentId
                             }
-                        ].map(({ type, title, amount }) => (
-                            <div key={type} className="border border-gray-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:shadow-md transition-shadow bg-white">
-                                <div className="flex items-center gap-4 flex-1">
-                                    <div className="w-12 h-12 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
-                                        <img src="/images/sharhdari-2.png" className="w-12 h-12" alt="" />
+                        ].map(({ type, title, amount, billId, paymentId }) => {
+                            // بررسی وجود شناسه قبض و شناسه پرداخت
+                            const hasBillId = billId && billId !== '0' && billId !== 'null' && billId !== '-';
+                            const hasPaymentId = paymentId && paymentId !== '0' && paymentId !== 'null' && paymentId !== '-';
+                            const hasValidPayment = hasBillId && hasPaymentId && amount && amount > 0;
+
+                            // بررسی عدم بدهی (اگر شناسه قبض یا شناسه پرداخت وجود نداشته باشد)
+                            const isNoDebt = (!hasBillId || !hasPaymentId) && amount === null;
+                            const isDisabled = !hasValidPayment;
+
+                            return (
+                                <div key={type} className="border border-gray-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:shadow-md transition-shadow bg-white">
+                                    <div className="flex items-center gap-4 flex-1">
+                                        <div className="w-12 h-12 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
+                                            <img src="/images/sharhdari-2.png" className="w-12 h-12" alt="" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <h4 className="text-gray-800">{title}</h4>
+                                            <div className="flex flex-wrap items-center gap-2 mt-1">
+                                                {isNoDebt ? (
+                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
+                                        <CheckCircle className="w-4 h-4" />
+                                        عدم بدهی
+                                    </span>
+                                                ) : (
+                                                    <>
+                                                        <p className="text-sm text-gray-500">
+                                                            مبلغ: <span className={amount ? 'text-gray-800' : 'text-gray-400'}>
+                                                {amount ? `${amount.toLocaleString()} ریال` : '-'}
+                                            </span>
+                                                        </p>
+                                                        {!hasBillId && (
+                                                            <span className="text-xs text-red-500">شناسه قبض موجود نیست</span>
+                                                        )}
+                                                        {!hasPaymentId && (
+                                                            <span className="text-xs text-red-500">شناسه پرداخت موجود نیست</span>
+                                                        )}
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
+                                    <button
+                                        onClick={() => handleSelectCharge(type)}
+                                        disabled={isDisabled || isNoDebt}
+                                        className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-colors shrink-0 flex items-center gap-2 ${
+                                            !isDisabled && !isNoDebt
+                                                ? 'bg-[#145d6e] hover:bg-[#1a7a8f] text-white'
+                                                : isNoDebt
+                                                    ? 'bg-green-100 text-green-700 cursor-default'
+                                                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                        }`}
+                                    >
+                                        {isNoDebt ? (
+                                            'پرداخت نشده'
+                                        ) : !isDisabled ? (
+                                            <>
+                                                پرداخت
+                                                <ChevronRight className="w-4 h-4 rotate-180" />
+                                            </>
+                                        ) : (
+                                            'غیرقابل پرداخت'
+                                        )}
+                                    </button>
+                                </div>
+                            );
+                        })}
+
+                        {/* پیام زمانی که هیچ عوارضی برای پرداخت وجود ندارد */}
+                        {units.every(unit =>
+                            (!unit.amount || !unit.billId || !unit.paymentId) &&
+                            (!unit.pasmandAmount || !unit.pasmandBillId || !unit.pasmandPaymentId)
+                        ) && (
+                            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-800">
+                                <div className="flex items-start gap-3">
+                                    <CheckCircle className="w-5 h-5 shrink-0 mt-0.5 text-green-600" />
                                     <div>
-                                        <h4 className="text-gray-800">{title}</h4>
-                                        <p className="text-sm text-gray-500">
-                                            مبلغ: <span className={amount ? 'text-gray-800' : 'text-gray-400'}>
-                                {amount ? `${amount.toLocaleString()} ریال` : '-'}
-                            </span>
-                                        </p>
+                                        <p className="font-medium">وضعیت عوارض</p>
+                                        <p className="mt-1">هیچ عوارض قابل پرداختی برای این ملک وجود ندارد. تمامی عوارض تسویه شده است.</p>
                                     </div>
                                 </div>
-                                <button onClick={() => handleSelectCharge(type)} disabled={!amount}
-                                        className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-colors shrink-0 flex items-center gap-2 ${
-                                            amount ? 'bg-[#145d6e] hover:bg-[#1a7a8f] text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                        }`}>
-                                    پرداخت
-                                    <ChevronRight className="w-4 h-4 rotate-180" />
-                                </button>
-                            </div>
-                        ))}
-
-                        {!selectedUnit?.amount && !selectedUnit?.pasmandAmount && !chargeAmount && !pasmandAmount && (
-                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800 flex items-start gap-2">
-                                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-                                <span>مبلغ عوارض برای این ملک ثبت نشده است. لطفاً برای اطلاع از مبلغ به شهرداری مراجعه کنید.</span>
                             </div>
                         )}
                     </div>
@@ -892,6 +987,18 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                                     <CheckCircle className="w-8 h-8 text-green-500" />
                                 </div>
                             </div>
+
+                            {/* نمایش شناسه قبض و شناسه پرداخت */}
+                            <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-2 gap-4">
+                                <div>
+                                    <p className="text-xs text-gray-500">شناسه قبض</p>
+                                    <p className="text-sm font-mono text-gray-700">{selectedCharge.billId || '-'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-gray-500">شناسه پرداخت</p>
+                                    <p className="text-sm font-mono text-gray-700">{selectedCharge.paymentId || '-'}</p>
+                                </div>
+                            </div>
                         </div>
 
                         <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm text-blue-800 flex items-start gap-3">
@@ -901,13 +1008,6 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                                 <p>پس از کلیک روی دکمه پرداخت، به درگاه بانکی هدایت خواهید شد.</p>
                             </div>
                         </div>
-
-                        {!selectedCharge.amount && (
-                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800 flex items-start gap-2">
-                                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-                                <span>مبلغ عوارض ثبت نشده است و امکان پرداخت وجود ندارد.</span>
-                            </div>
-                        )}
                     </div>
                 )}
             </>
