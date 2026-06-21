@@ -542,22 +542,26 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
 
     const handleSelectCharge = (type: 'nosazi' | 'pasmand') => {
         const targetUnit = selectedUnit || units[0];
+        if (!targetUnit) return;
+
         if (type === 'nosazi') {
             setSelectedCharge({
-                id: 'nosazi', type: 'nosazi',
+                id: 'nosazi',
+                type: 'nosazi',
                 title: 'عوارض نوسازی و عمران',
-                amount: chargeAmount || targetUnit?.amount,
-                billId: billId || targetUnit?.billId || '-',
-                paymentId: paymentId || targetUnit?.paymentId || '-',
+                amount: targetUnit.amount, // از واحد انتخاب شده استفاده کن
+                billId: targetUnit.billId || '-',
+                paymentId: targetUnit.paymentId || '-',
                 icon: '/images/sharhdari-2.png'
             });
         } else {
             setSelectedCharge({
-                id: 'pasmand', type: 'pasmand',
+                id: 'pasmand',
+                type: 'pasmand',
                 title: 'عوارض پسماند',
-                amount: pasmandAmount || targetUnit?.pasmandAmount,
-                billId: pasmandBillId || targetUnit?.pasmandBillId || '-',
-                paymentId: pasmandPaymentId || targetUnit?.pasmandPaymentId || '-',
+                amount: targetUnit.pasmandAmount, // از واحد انتخاب شده استفاده کن
+                billId: targetUnit.pasmandBillId || '-',
+                paymentId: targetUnit.pasmandPaymentId || '-',
                 icon: '/images/sharhdari-2.png'
             });
         }
@@ -803,14 +807,14 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                                 <span className="font-mono text-[#145d6e] text-lg">{selectedUnit?.codeN || units[0]?.codeN}</span>
                             </div>
                             <div className="flex flex-wrap gap-4 text-sm">
-                                <span>
-                                    <span className="text-gray-500 text-lg">مالک:</span>{' '}
-                                    <span className="text-right text-lg" dir="rtl">{selectedUnit?.nameMalek || ownerName || 'نامشخص'}</span>
-                                </span>
+                <span>
+                    <span className="text-gray-500 text-lg">مالک:</span>{' '}
+                    <span className="text-right text-lg" dir="rtl">{selectedUnit?.nameMalek || ownerName || 'نامشخص'}</span>
+                </span>
                                 <span className="text-lg">
-                                    <span className="text-gray-500 text-lg">مساحت:</span>{' '}
+                    <span className="text-gray-500 text-lg">مساحت:</span>{' '}
                                     {selectedUnit?.area?.toLocaleString() || area || 'نامشخص'} متر
-                                </span>
+                </span>
                             </div>
                         </div>
 
@@ -820,8 +824,16 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                         </h3>
 
                         {[
-                            { type: 'nosazi' as const, title: 'عوارض نوسازی و عمران شهری', amount: chargeAmount },
-                            { type: 'pasmand' as const, title: 'بهای خدمات مدیریت پسماند', amount: pasmandAmount }
+                            {
+                                type: 'nosazi' as const,
+                                title: 'عوارض نوسازی و عمران شهری',
+                                amount: selectedUnit?.amount || chargeAmount // اولویت با واحد انتخاب شده
+                            },
+                            {
+                                type: 'pasmand' as const,
+                                title: 'بهای خدمات مدیریت پسماند',
+                                amount: selectedUnit?.pasmandAmount || pasmandAmount // اولویت با واحد انتخاب شده
+                            }
                         ].map(({ type, title, amount }) => (
                             <div key={type} className="border border-gray-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:shadow-md transition-shadow bg-white">
                                 <div className="flex items-center gap-4 flex-1">
@@ -832,8 +844,8 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                                         <h4 className="text-gray-800">{title}</h4>
                                         <p className="text-sm text-gray-500">
                                             مبلغ: <span className={amount ? 'text-gray-800' : 'text-gray-400'}>
-                                                {amount ? `${amount.toLocaleString()} ریال` : '-'}
-                                            </span>
+                                {amount ? `${amount.toLocaleString()} ریال` : '-'}
+                            </span>
                                         </p>
                                     </div>
                                 </div>
@@ -847,7 +859,7 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                             </div>
                         ))}
 
-                        {!chargeAmount && !pasmandAmount && (
+                        {!selectedUnit?.amount && !selectedUnit?.pasmandAmount && !chargeAmount && !pasmandAmount && (
                             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800 flex items-start gap-2">
                                 <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
                                 <span>مبلغ عوارض برای این ملک ثبت نشده است. لطفاً برای اطلاع از مبلغ به شهرداری مراجعه کنید.</span>
