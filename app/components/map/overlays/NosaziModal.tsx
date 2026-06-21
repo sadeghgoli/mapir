@@ -379,13 +379,16 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
 
             // فیلتر کردن واحدهایی که فقط shop دارند و هیچ اطلاعات دیگری ندارند
             transformedUnits = transformedUnits.filter(unit => {
+                // این واحد رو نگه دار اگر حداقل یکی از موارد زیر رو داشته باشه
                 const hasInfo =
                     (unit.nameMalek !== null && unit.nameMalek !== '') ||
                     (unit.amount !== null && unit.amount > 0) ||
                     (unit.pasmandAmount !== null && unit.pasmandAmount > 0) ||
                     (unit.area > 0) ||
                     (unit.address !== null && unit.address !== '') ||
-                    (unit.tabaghe !== null && unit.tabaghe !== '');
+                    (unit.tabaghe !== null && unit.tabaghe !== '') ||
+                    // حتی اگر فقط codeN داشته باشه، نگهش دار
+                    (unit.codeN !== null && unit.codeN !== '');
                 return hasInfo;
             });
 
