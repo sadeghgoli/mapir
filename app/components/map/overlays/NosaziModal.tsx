@@ -495,6 +495,7 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                     billId: selectedCharge.billId,
                     paymentId: selectedCharge.paymentId,
                     amount: selectedCharge.amount,
+                    chargeType: selectedCharge.type,
                     description: `پرداخت ${selectedCharge.title} - ملک ${landCode || nosaziData.code}`
                 })
             });
