@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
-    X, Printer, CheckCircle, CreditCard, MapPin, Copy, Check,
+    X, CheckCircle, CreditCard, MapPin, Check,
     ChevronRight, Building2, Users, Ruler, Loader2, AlertCircle,
     Star, StarOff, LogIn
 } from 'lucide-react';
@@ -91,12 +91,6 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
     const [ownerName, setOwnerName] = useState('');
     const [area, setArea] = useState('');
     const [address, setAddress] = useState('');
-    const [billId, setBillId] = useState('');
-    const [paymentId, setPaymentId] = useState('');
-    const [chargeAmount, setChargeAmount] = useState<number | null>(null);
-    const [pasmandAmount, setPasmandAmount] = useState<number | null>(null);
-    const [pasmandBillId, setPasmandBillId] = useState('');
-    const [pasmandPaymentId, setPasmandPaymentId] = useState('');
     const [landCode, setLandCode] = useState<string>('');
 
     const [isSaved, setIsSaved] = useState(false);
@@ -123,7 +117,7 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
         } catch (err) {
             console.error('Error checking location:', err);
         }
-    }, [isAuthenticated, getToken]);
+    }, [getToken]);
 
     const handleToggleSave = async () => {
         if (!isAuthenticated) {
@@ -896,7 +890,7 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                                                                 {amount ? `${amount.toLocaleString()} ریال` : '-'}
                                                             </span>
                                                         </p>
-                                                        {billId && (
+                                                        {billId && billId !== '0' && (
                                                             <span className="text-xs text-gray-400">شناسه قبض: {billId}</span>
                                                         )}
                                                     </>
