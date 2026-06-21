@@ -31,7 +31,7 @@ interface ApiBuildingUnit {
     codeN: string;
     Name_Malek: string | null;
     neshani_melk: string | null;
-    Tabaghe: string | null;  // این فیلد برای عنوان طبقه است
+    Tabaghe: string | null;
     TedadeVahed: string | null;
     Zirbana: string | null;
     MasahatZamin: string | null;
@@ -54,7 +54,7 @@ interface BuildingUnit {
     codeN: string;
     shop: number;
     sakhteman: number;
-    tabaghe: string | null;  // اضافه کردن فیلد tabaghe
+    tabaghe: string | null;
     apar: number;
     area: number;
     nameMalek: string | null;
@@ -109,7 +109,6 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
     }, []);
 
     const checkIfSaved = useCallback(async (code: string) => {
-        // if (!isAuthenticated) return;
         const token = getToken();
         if (!token) return;
 
@@ -197,8 +196,6 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
         return btoa(binary);
     };
 
-
-    // اضافه کردن این تابع در داخل کامپوننت NosaziModal
     const registerView = useCallback(async (code: string) => {
         const token = getToken();
         if (!token || !isAuthenticated) return;
@@ -223,7 +220,6 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
         }
     }, [isAuthenticated, getToken]);
 
-    // در useEffect مربوط به fetchNosaziInfo، بعد از تنظیم اطلاعات
     useEffect(() => {
         if (isOpen && nosaziData.code) {
             document.body.style.overflow = 'hidden';
@@ -236,10 +232,8 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
             setSaveMessage(null);
 
             if (isAuthenticated) {
-                // ✅ دریافت اطلاعات و سپس ثبت بازدید
                 const loadData = async () => {
                     await fetchNosaziInfo(nosaziData.code);
-                    // بعد از بارگذاری اطلاعات، بازدید را ثبت کن
                     const codeToView = landCode || formatCodeN(nosaziData.code);
                     if (codeToView) {
                         registerView(codeToView);
@@ -330,26 +324,20 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                 return;
             }
 
-            // 1. پیدا کردن آیتم اصلی (code_tree === 0) برای اطلاعات پایه
+            // پیدا کردن آیتم اصلی (code_tree === 0) برای اطلاعات پایه
             const landItem = rawData.find(item => item.code_tree === 0 || item.codeN?.endsWith('-0-0-0'));
 
-            // 2. پیدا کردن آیتم‌های واحدها (code_tree !== 0)
+            // پیدا کردن آیتم‌های واحدها (code_tree !== 0) - همه واحدها را نگه دار
             const unitItems = rawData.filter(item =>
                 item.code_tree !== 0 &&
-                item.codeN?.includes('-') &&
-                // فیلتر کردن آیتم‌های null که فقط shop دارند
-                (item.Name_Malek !== null ||
-                    item.Tabaghe !== null ||
-                    item.MasahatZamin !== null ||
-                    item.Nmablagh !== null ||
-                    item.Pmablagh !== null)
+                item.codeN?.includes('-')
             );
 
-            // ساخت لیست واحدها - فقط واحدهایی که اطلاعات دارند
+            // ساخت لیست واحدها - همه واحدها را تبدیل کن
             let transformedUnits: BuildingUnit[] = [];
 
             if (unitItems.length === 0) {
-                // اگر هیچ واحد معتبری نبود، از داده اصلی استفاده کن
+                // اگر هیچ واحدی نبود، از داده اصلی استفاده کن
                 if (landItem) {
                     transformedUnits = [{
                         id: landItem.shop || 1,
@@ -370,29 +358,8 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                     }];
                 }
             } else {
-                // تبدیل واحدهای معتبر
+                // تبدیل همه واحدها
                 transformedUnits = unitItems.map((item, index) => {
-                    // بررسی دقیق وجود مقادیر
-                    const hasNosazi = item.Nmablagh !== null &&
-                        item.Nmablagh !== undefined &&
-                        Number(item.Nmablagh) > 0 &&
-                        item.NShenaseGhabz !== null &&
-                        item.NShenaseGhabz !== '0' &&
-                        item.NShenaseGhabz !== '' &&
-                        item.NShenasePardakht !== null &&
-                        item.NShenasePardakht !== '0' &&
-                        item.NShenasePardakht !== '';
-
-                    const hasPasmand = item.Pmablagh !== null &&
-                        item.Pmablagh !== undefined &&
-                        Number(item.Pmablagh) > 0 &&
-                        item.PShenaseGhabz !== null &&
-                        item.PShenaseGhabz !== '0' &&
-                        item.PShenaseGhabz !== '' &&
-                        item.PShenasePardakht !== null &&
-                        item.PShenasePardakht !== '0' &&
-                        item.PShenasePardakht !== '';
-
                     return {
                         id: item.shop || index + 1,
                         codeN: formatCodeN(item.codeN || ''),
@@ -403,25 +370,28 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                         area: typeof item.MasahatZamin === 'number' ? item.MasahatZamin : 0,
                         nameMalek: decodePersianText(item.Name_Malek),
                         address: decodePersianText(item.neshani_melk),
-                        // نوسازی - فقط در صورت وجود اطلاعات معتبر
-                        billId: hasNosazi ? (item.NShenaseGhabz || null) : null,
-                        paymentId: hasNosazi ? (item.NShenasePardakht || null) : null,
-                        amount: hasNosazi ? Number(item.Nmablagh) : null,
-                        // پسماند - فقط در صورت وجود اطلاعات معتبر
-                        pasmandAmount: hasPasmand ? Number(item.Pmablagh) : null,
-                        pasmandBillId: hasPasmand ? (item.PShenaseGhabz || null) : null,
-                        pasmandPaymentId: hasPasmand ? (item.PShenasePardakht || null) : null
+                        // نگهداری مقادیر واقعی، حتی اگر null باشند
+                        billId: item.NShenaseGhabz || null,
+                        paymentId: item.NShenasePardakht || null,
+                        amount: item.Nmablagh !== null && item.Nmablagh !== undefined ? Number(item.Nmablagh) : null,
+                        pasmandAmount: item.Pmablagh !== null && item.Pmablagh !== undefined ? Number(item.Pmablagh) : null,
+                        pasmandBillId: item.PShenaseGhabz || null,
+                        pasmandPaymentId: item.PShenasePardakht || null
                     };
                 });
             }
 
-            // فیلتر کردن واحدهایی که حداقل یک اطلاعات معتبر دارند
-            transformedUnits = transformedUnits.filter(unit =>
-                unit.nameMalek !== null ||
-                unit.amount !== null ||
-                unit.pasmandAmount !== null ||
-                unit.area > 0
-            );
+            // فیلتر کردن واحدهایی که فقط shop دارند و هیچ اطلاعات دیگری ندارند
+            transformedUnits = transformedUnits.filter(unit => {
+                const hasInfo =
+                    (unit.nameMalek !== null && unit.nameMalek !== '') ||
+                    (unit.amount !== null && unit.amount > 0) ||
+                    (unit.pasmandAmount !== null && unit.pasmandAmount > 0) ||
+                    (unit.area > 0) ||
+                    (unit.address !== null && unit.address !== '') ||
+                    (unit.tabaghe !== null && unit.tabaghe !== '');
+                return hasInfo;
+            });
 
             setUnits(transformedUnits);
 
@@ -490,7 +460,6 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
             return;
         }
 
-        // بررسی مجدد وجود شناسه قبض و پرداخت
         if (selectedCharge.billId === '0' || selectedCharge.billId === 'null' || selectedCharge.billId === '-' ||
             selectedCharge.paymentId === '0' || selectedCharge.paymentId === 'null' || selectedCharge.paymentId === '-') {
             setSaveMessage({
@@ -571,9 +540,16 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
             const billId = targetUnit.billId;
             const paymentId = targetUnit.paymentId;
 
-            // بررسی وجود اطلاعات معتبر
-            if (!amount || amount <= 0 || !billId || !paymentId) {
-                setSaveMessage({ text: 'این عوارض تسویه شده است یا اطلاعات پرداخت وجود ندارد', type: 'error' });
+            // بررسی کامل اطلاعات پرداخت
+            const hasValidAmount = amount !== null && amount !== undefined && amount > 0;
+            const hasBillId = billId !== null && billId !== undefined && billId !== '' && billId !== '0';
+            const hasPaymentId = paymentId !== null && paymentId !== undefined && paymentId !== '' && paymentId !== '0';
+
+            if (!hasValidAmount || !hasBillId || !hasPaymentId) {
+                setSaveMessage({
+                    text: 'این عوارض تسویه شده است یا اطلاعات پرداخت کامل نیست',
+                    type: 'error'
+                });
                 setTimeout(() => setSaveMessage(null), 3000);
                 return;
             }
@@ -592,8 +568,15 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
             const billId = targetUnit.pasmandBillId;
             const paymentId = targetUnit.pasmandPaymentId;
 
-            if (!amount || amount <= 0 || !billId || !paymentId) {
-                setSaveMessage({ text: 'عوارض پسماند تسویه شده است یا اطلاعات پرداخت وجود ندارد', type: 'error' });
+            const hasValidAmount = amount !== null && amount !== undefined && amount > 0;
+            const hasBillId = billId !== null && billId !== undefined && billId !== '' && billId !== '0';
+            const hasPaymentId = paymentId !== null && paymentId !== undefined && paymentId !== '' && paymentId !== '0';
+
+            if (!hasValidAmount || !hasBillId || !hasPaymentId) {
+                setSaveMessage({
+                    text: 'عوارض پسماند تسویه شده است یا اطلاعات پرداخت کامل نیست',
+                    type: 'error'
+                });
                 setTimeout(() => setSaveMessage(null), 3000);
                 return;
             }
@@ -786,14 +769,13 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                                         </div>
                                     </div>
 
-                                    {/* نمایش نام مالک به صورت درشت */}
                                     <div className="mb-3 pb-3 border-b border-gray-100">
                                         <div className="flex items-center gap-2">
                                             <Users className="w-4 h-4 text-[#145d6e]" />
                                             <span className="text-sm text-gray-500">مالک:</span>
                                             <span className="text-base font-bold text-gray-800">
-                                {unit.nameMalek || 'نامشخص'}
-                            </span>
+                                                {unit.nameMalek || 'نامشخص'}
+                                            </span>
                                         </div>
                                     </div>
 
@@ -801,18 +783,17 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                                         <div>
                                             <span className="text-gray-500 text-xs block">طبقه</span>
                                             <span className="font-medium text-gray-700">
-                                {unit.tabaghe || '-'}
-                            </span>
+                                                {unit.tabaghe || '-'}
+                                            </span>
                                         </div>
                                         <div>
                                             <span className="text-gray-500 text-xs block">زیربنا (متر)</span>
                                             <span className="font-medium text-gray-700">
-                                {unit.area?.toLocaleString() || '-'}
-                            </span>
+                                                {unit.area?.toLocaleString() || '-'}
+                                            </span>
                                         </div>
                                     </div>
 
-                                    {/* نمایش آدرس هر واحد */}
                                     {unit.address && unit.address !== 'آدرس ثبت نشده' && (
                                         <div className="mt-3 pt-3 border-t border-gray-100">
                                             <div className="flex items-start gap-2">
@@ -820,14 +801,13 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                                                 <div>
                                                     <span className="text-xs text-gray-500 block mb-0.5">آدرس واحد:</span>
                                                     <span className="text-sm text-gray-700 leading-relaxed" dir="rtl">
-                                        {unit.address}
-                                    </span>
+                                                        {unit.address}
+                                                    </span>
                                                 </div>
                                             </div>
                                         </div>
                                     )}
 
-                                    {/* در صورت عدم وجود آدرس، پیام نمایش داده شود */}
                                     {(!unit.address || unit.address === 'آدرس ثبت نشده') && (
                                         <div className="mt-3 pt-3 border-t border-gray-100">
                                             <div className="flex items-start gap-2">
@@ -850,14 +830,14 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                                 <span className="font-mono text-[#145d6e] text-lg">{selectedUnit?.codeN || units[0]?.codeN}</span>
                             </div>
                             <div className="flex flex-wrap gap-4 text-sm">
-                <span>
-                    <span className="text-gray-500 text-lg">مالک:</span>{' '}
-                    <span className="text-right text-lg" dir="rtl">{selectedUnit?.nameMalek || ownerName || 'نامشخص'}</span>
-                </span>
+                                <span>
+                                    <span className="text-gray-500 text-lg">مالک:</span>{' '}
+                                    <span className="text-right text-lg" dir="rtl">{selectedUnit?.nameMalek || ownerName || 'نامشخص'}</span>
+                                </span>
                                 <span className="text-lg">
-                    <span className="text-gray-500 text-lg">مساحت:</span>{' '}
+                                    <span className="text-gray-500 text-lg">مساحت:</span>{' '}
                                     {selectedUnit?.area?.toLocaleString() || area || 'نامشخص'} متر
-                </span>
+                                </span>
                             </div>
                         </div>
 
@@ -882,21 +862,18 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                                 paymentId: selectedUnit?.pasmandPaymentId
                             }
                         ].map(({ type, title, amount, billId, paymentId }) => {
-                            // بررسی دقیق وجود اطلاعات معتبر
-                            const hasValidNosazi = amount !== null &&
-                                amount !== undefined &&
-                                amount > 0 &&
-                                billId !== null &&
-                                billId !== undefined &&
-                                billId !== '0' &&
-                                billId !== '' &&
-                                paymentId !== null &&
-                                paymentId !== undefined &&
-                                paymentId !== '0' &&
-                                paymentId !== '';
+                            // بررسی وجود شناسه قبض و شناسه پرداخت
+                            const hasBillId = billId !== null && billId !== undefined && billId !== '' && billId !== '0';
+                            const hasPaymentId = paymentId !== null && paymentId !== undefined && paymentId !== '' && paymentId !== '0';
 
-                            // عدم بدهی: وقتی مبلغ null است یا 0 است یا شناسه‌ها وجود ندارند
-                            const isNoDebt = !hasValidNosazi;
+                            // بررسی معتبر بودن مبلغ
+                            const hasValidAmount = amount !== null && amount !== undefined && amount > 0;
+
+                            // شرط پرداخت معتبر: هم مبلغ و هم هر دو شناسه وجود داشته باشند
+                            const hasValidPayment = hasValidAmount && hasBillId && hasPaymentId;
+
+                            // عدم بدهی: اگر مبلغ null یا 0 باشد OR یکی از شناسه‌ها null باشد
+                            const isNoDebt = !hasValidPayment;
 
                             return (
                                 <div key={type} className="border border-gray-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:shadow-md transition-shadow bg-white">
@@ -909,15 +886,15 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                                             <div className="flex flex-wrap items-center gap-2 mt-1">
                                                 {isNoDebt ? (
                                                     <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
-                                        <CheckCircle className="w-4 h-4" />
-                                        عدم بدهی
-                                    </span>
+                                                        <CheckCircle className="w-4 h-4" />
+                                                        عدم بدهی
+                                                    </span>
                                                 ) : (
                                                     <>
                                                         <p className="text-sm text-gray-500">
                                                             مبلغ: <span className="text-gray-800 font-medium">
-                                                {amount ? `${amount.toLocaleString()} ریال` : '-'}
-                                            </span>
+                                                                {amount ? `${amount.toLocaleString()} ریال` : '-'}
+                                                            </span>
                                                         </p>
                                                         {billId && (
                                                             <span className="text-xs text-gray-400">شناسه قبض: {billId}</span>
@@ -928,9 +905,13 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                                         </div>
                                     </div>
                                     <button
-                                        onClick={() => handleSelectCharge(type)}
+                                        onClick={() => {
+                                            if (!isNoDebt) {
+                                                handleSelectCharge(type);
+                                            }
+                                        }}
                                         disabled={isNoDebt}
-                                        className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-colors shrink-0 flex items-center gap-2 ${
+                                        className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-colors shrink-0 flex items-center gap-2 min-w-[100px] justify-center ${
                                             !isNoDebt
                                                 ? 'bg-[#145d6e] hover:bg-[#1a7a8f] text-white'
                                                 : 'bg-green-100 text-green-700 cursor-default'
@@ -948,22 +929,6 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                                 </div>
                             );
                         })}
-
-                        {/* پیام زمانی که همه واحدها تسویه شده باشند */}
-                        {units.length > 0 && units.every(unit =>
-                            (!unit.amount || unit.amount === 0 || !unit.billId) &&
-                            (!unit.pasmandAmount || unit.pasmandAmount === 0 || !unit.pasmandBillId)
-                        ) && (
-                            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-800">
-                                <div className="flex items-start gap-3">
-                                    <CheckCircle className="w-5 h-5 shrink-0 mt-0.5 text-green-600" />
-                                    <div>
-                                        <p className="font-medium">وضعیت عوارض</p>
-                                        <p className="mt-1">تمامی عوارض این ملک تسویه شده است. هیچ بدهی قابل پرداختی وجود ندارد.</p>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
                     </div>
                 )}
 
@@ -992,7 +957,6 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                                 </div>
                             </div>
 
-                            {/* نمایش شناسه قبض و شناسه پرداخت */}
                             <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-2 gap-4">
                                 <div>
                                     <p className="text-xs text-gray-500">شناسه قبض</p>
