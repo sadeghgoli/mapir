@@ -868,6 +868,9 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
 
                             // عدم بدهی: اگر مبلغ null یا 0 باشد OR یکی از شناسه‌ها null باشد
                             const isNoDebt = !hasValidPayment;
+                            console.log(isNoDebt)
+                            console.log(hasValidPayment)
+                            console.log(selectedUnit)
 
                             return (
                                 <div key={type} className="border border-gray-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:shadow-md transition-shadow bg-white">
