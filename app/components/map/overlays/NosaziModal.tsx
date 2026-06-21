@@ -330,77 +330,107 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                 return;
             }
 
-            // ====== تغییر مهم: تفکیک بهتر داده‌ها ======
-
             // 1. پیدا کردن آیتم اصلی (code_tree === 0) برای اطلاعات پایه
             const landItem = rawData.find(item => item.code_tree === 0 || item.codeN?.endsWith('-0-0-0'));
 
             // 2. پیدا کردن آیتم‌های واحدها (code_tree !== 0)
-            const unitItems = rawData.filter(item => item.code_tree !== 0 && item.codeN?.includes('-'));
-
-            // 3. پیدا کردن آیتمی که اطلاعات پسماند دارد
-            const pasmandItem = unitItems.find(item =>
-                item.Pmablagh && Number(item.Pmablagh) > 0 &&
-                item.PShenaseGhabz && item.PShenasePardakht
-            ) || unitItems.find(item =>
-                item.Pmablagh && Number(item.Pmablagh) > 0
+            const unitItems = rawData.filter(item =>
+                item.code_tree !== 0 &&
+                item.codeN?.includes('-') &&
+                // فیلتر کردن آیتم‌های null که فقط shop دارند
+                (item.Name_Malek !== null ||
+                    item.Tabaghe !== null ||
+                    item.MasahatZamin !== null ||
+                    item.Nmablagh !== null ||
+                    item.Pmablagh !== null)
             );
 
-            // 4. پیدا کردن آیتمی که اطلاعات نوسازی دارد
-            const nosaziItem = unitItems.find(item =>
-                item.Nmablagh && Number(item.Nmablagh) > 0 &&
-                item.NShenaseGhabz && item.NShenasePardakht
-            ) || unitItems.find(item =>
-                item.Nmablagh && Number(item.Nmablagh) > 0
-            ) || unitItems[0];
-
-            // ساخت لیست واحدها
+            // ساخت لیست واحدها - فقط واحدهایی که اطلاعات دارند
             let transformedUnits: BuildingUnit[] = [];
 
-            // اگر فقط یک واحد داریم (ویلا)
-            if (unitItems.length === 1 || rawData.length === 2) {
-                const mainUnit = unitItems[0] || rawData[1] || rawData[0];
-                transformedUnits = [{
-                    id: mainUnit.shop || 1,
-                    codeN: formatCodeN(mainUnit.codeN || ''),
-                    shop: typeof mainUnit.shop === 'number' ? mainUnit.shop : 0,
-                    sakhteman: extractFloorFromCode(mainUnit.codeN || ''),
-                    tabaghe: decodePersianText(mainUnit.Tabaghe),
-                    apar: extractUnitFromCode(mainUnit.codeN || ''),
-                    area: typeof mainUnit.MasahatZamin === 'number' ? mainUnit.MasahatZamin : 0,
-                    nameMalek: decodePersianText(mainUnit.Name_Malek),
-                    address: decodePersianText(mainUnit.neshani_melk),
-                    billId: mainUnit.NShenaseGhabz || null,
-                    paymentId: mainUnit.NShenasePardakht || null,
-                    amount: mainUnit.Nmablagh ? Number(mainUnit.Nmablagh) : null,
-                    pasmandAmount: mainUnit.Pmablagh ? Number(mainUnit.Pmablagh) : null,
-                    pasmandBillId: mainUnit.PShenaseGhabz || null,
-                    pasmandPaymentId: mainUnit.PShenasePardakht || null
-                }];
+            if (unitItems.length === 0) {
+                // اگر هیچ واحد معتبری نبود، از داده اصلی استفاده کن
+                if (landItem) {
+                    transformedUnits = [{
+                        id: landItem.shop || 1,
+                        codeN: formatCodeN(landItem.codeN || ''),
+                        shop: typeof landItem.shop === 'number' ? landItem.shop : 0,
+                        sakhteman: 0,
+                        tabaghe: null,
+                        apar: 0,
+                        area: typeof landItem.MasahatZamin === 'number' ? landItem.MasahatZamin : 0,
+                        nameMalek: decodePersianText(landItem.Name_Malek),
+                        address: decodePersianText(landItem.neshani_melk),
+                        billId: null,
+                        paymentId: null,
+                        amount: null,
+                        pasmandAmount: null,
+                        pasmandBillId: null,
+                        pasmandPaymentId: null
+                    }];
+                }
             } else {
-                // چند واحد
-                transformedUnits = unitItems.map((item, index) => ({
-                    id: item.shop || index + 1,
-                    codeN: formatCodeN(item.codeN || ''),
-                    shop: typeof item.shop === 'number' ? item.shop : 0,
-                    sakhteman: extractFloorFromCode(item.codeN || ''),
-                    tabaghe: decodePersianText(item.Tabaghe),
-                    apar: extractUnitFromCode(item.codeN || ''),
-                    area: typeof item.MasahatZamin === 'number' ? item.MasahatZamin : 0,
-                    nameMalek: decodePersianText(item.Name_Malek),
-                    address: decodePersianText(item.neshani_melk),
-                    billId: item.NShenaseGhabz || null,
-                    paymentId: item.NShenasePardakht || null,
-                    amount: item.Nmablagh ? Number(item.Nmablagh) : null,
-                    pasmandAmount: item.Pmablagh ? Number(item.Pmablagh) : null,
-                    pasmandBillId: item.PShenaseGhabz || null,
-                    pasmandPaymentId: item.PShenasePardakht || null
-                }));
+                // تبدیل واحدهای معتبر
+                transformedUnits = unitItems.map((item, index) => {
+                    // بررسی دقیق وجود مقادیر
+                    const hasNosazi = item.Nmablagh !== null &&
+                        item.Nmablagh !== undefined &&
+                        Number(item.Nmablagh) > 0 &&
+                        item.NShenaseGhabz !== null &&
+                        item.NShenaseGhabz !== '0' &&
+                        item.NShenaseGhabz !== '' &&
+                        item.NShenasePardakht !== null &&
+                        item.NShenasePardakht !== '0' &&
+                        item.NShenasePardakht !== '';
+
+                    const hasPasmand = item.Pmablagh !== null &&
+                        item.Pmablagh !== undefined &&
+                        Number(item.Pmablagh) > 0 &&
+                        item.PShenaseGhabz !== null &&
+                        item.PShenaseGhabz !== '0' &&
+                        item.PShenaseGhabz !== '' &&
+                        item.PShenasePardakht !== null &&
+                        item.PShenasePardakht !== '0' &&
+                        item.PShenasePardakht !== '';
+
+                    return {
+                        id: item.shop || index + 1,
+                        codeN: formatCodeN(item.codeN || ''),
+                        shop: typeof item.shop === 'number' ? item.shop : 0,
+                        sakhteman: extractFloorFromCode(item.codeN || ''),
+                        tabaghe: decodePersianText(item.Tabaghe),
+                        apar: extractUnitFromCode(item.codeN || ''),
+                        area: typeof item.MasahatZamin === 'number' ? item.MasahatZamin : 0,
+                        nameMalek: decodePersianText(item.Name_Malek),
+                        address: decodePersianText(item.neshani_melk),
+                        // نوسازی - فقط در صورت وجود اطلاعات معتبر
+                        billId: hasNosazi ? (item.NShenaseGhabz || null) : null,
+                        paymentId: hasNosazi ? (item.NShenasePardakht || null) : null,
+                        amount: hasNosazi ? Number(item.Nmablagh) : null,
+                        // پسماند - فقط در صورت وجود اطلاعات معتبر
+                        pasmandAmount: hasPasmand ? Number(item.Pmablagh) : null,
+                        pasmandBillId: hasPasmand ? (item.PShenaseGhabz || null) : null,
+                        pasmandPaymentId: hasPasmand ? (item.PShenasePardakht || null) : null
+                    };
+                });
             }
+
+            // فیلتر کردن واحدهایی که حداقل یک اطلاعات معتبر دارند
+            transformedUnits = transformedUnits.filter(unit =>
+                unit.nameMalek !== null ||
+                unit.amount !== null ||
+                unit.pasmandAmount !== null ||
+                unit.area > 0
+            );
 
             setUnits(transformedUnits);
 
-            // ====== تغییر مهم: تنظیم اطلاعات پایه از آیتم اصلی ======
+            // انتخاب اولین واحد به عنوان پیش‌فرض
+            if (transformedUnits.length > 0) {
+                setSelectedUnit(transformedUnits[0]);
+            }
+
+            // تنظیم اطلاعات پایه از آیتم اصلی
             const baseInfo = landItem || rawData[0];
             const resolvedLandCode = landItem ? formatCodeN(landItem.codeN || '') : formatCodeN(nosaziData.code);
             setLandCode(resolvedLandCode);
@@ -409,32 +439,6 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
             setOwnerName(decodePersianText(baseInfo?.Name_Malek) || nosaziData.ownerName || 'نامشخص');
             setArea((typeof baseInfo?.MasahatZamin === 'number' ? baseInfo.MasahatZamin.toString() : baseInfo?.MasahatZamin) || nosaziData.area || 'نامشخص');
             setAddress(decodePersianText(baseInfo?.neshani_melk) || nosaziData.address || 'آدرس ثبت نشده');
-
-            // ====== تغییر مهم: تنظیم اطلاعات نوسازی و پسماند از آیتم‌های مربوطه ======
-            // تنظیم اطلاعات نوسازی
-            if (nosaziItem) {
-                setBillId(nosaziItem.NShenaseGhabz || null);
-                setPaymentId(nosaziItem.NShenasePardakht || null);
-                setChargeAmount(nosaziItem.Nmablagh ? Number(nosaziItem.Nmablagh) : null);
-            } else if (nosaziData.billId && nosaziData.paymentId) {
-                setBillId(nosaziData.billId);
-                setPaymentId(nosaziData.paymentId);
-                setChargeAmount(nosaziData.amount || null);
-            }
-
-            // تنظیم اطلاعات پسماند
-            if (pasmandItem) {
-                setPasmandBillId(pasmandItem.PShenaseGhabz || '');
-                setPasmandPaymentId(pasmandItem.PShenasePardakht || '');
-                setPasmandAmount(pasmandItem.Pmablagh ? Number(pasmandItem.Pmablagh) : null);
-            } else {
-                // اگر پسماند در واحدها نبود، از آیتم اصلی استفاده کن
-                if (baseInfo?.PShenaseGhabz && baseInfo?.PShenasePardakht) {
-                    setPasmandBillId(baseInfo.PShenaseGhabz);
-                    setPasmandPaymentId(baseInfo.PShenasePardakht);
-                    setPasmandAmount(baseInfo.Pmablagh ? Number(baseInfo.Pmablagh) : null);
-                }
-            }
 
             await checkIfSaved(resolvedLandCode);
 
@@ -556,18 +560,20 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
 
     const handleSelectCharge = (type: 'nosazi' | 'pasmand') => {
         const targetUnit = selectedUnit || units[0];
-        if (!targetUnit) return;
+        if (!targetUnit) {
+            setSaveMessage({ text: 'واحد ساختمانی انتخاب نشده است', type: 'error' });
+            setTimeout(() => setSaveMessage(null), 3000);
+            return;
+        }
 
         if (type === 'nosazi') {
-            // بررسی وجود شناسه قبض و شناسه پرداخت
-            const billId = targetUnit.billId || billId;
-            const paymentId = targetUnit.paymentId || paymentId;
-            const amount = targetUnit.amount || chargeAmount;
+            const amount = targetUnit.amount;
+            const billId = targetUnit.billId;
+            const paymentId = targetUnit.paymentId;
 
-            // اگر شناسه قبض یا شناسه پرداخت وجود نداشت، پرداخت انجام نشود
-            if (!billId || !paymentId || billId === '0' || billId === 'null' || billId === '-' ||
-                !paymentId || paymentId === '0' || paymentId === 'null' || paymentId === '-') {
-                setSaveMessage({ text: 'اطلاعات پرداخت ناقص است یا عوارض تسویه شده است', type: 'error' });
+            // بررسی وجود اطلاعات معتبر
+            if (!amount || amount <= 0 || !billId || !paymentId) {
+                setSaveMessage({ text: 'این عوارض تسویه شده است یا اطلاعات پرداخت وجود ندارد', type: 'error' });
                 setTimeout(() => setSaveMessage(null), 3000);
                 return;
             }
@@ -582,14 +588,12 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                 icon: '/images/sharhdari-2.png'
             });
         } else {
-            // بررسی وجود شناسه قبض و شناسه پرداخت برای پسماند
-            const billId = targetUnit.pasmandBillId || pasmandBillId;
-            const paymentId = targetUnit.pasmandPaymentId || pasmandPaymentId;
-            const amount = targetUnit.pasmandAmount || pasmandAmount;
+            const amount = targetUnit.pasmandAmount;
+            const billId = targetUnit.pasmandBillId;
+            const paymentId = targetUnit.pasmandPaymentId;
 
-            if (!billId || !paymentId || billId === '0' || billId === 'null' || billId === '-' ||
-                !paymentId || paymentId === '0' || paymentId === 'null' || paymentId === '-') {
-                setSaveMessage({ text: 'اطلاعات پرداخت پسماند ناقص است یا عوارض تسویه شده است', type: 'error' });
+            if (!amount || amount <= 0 || !billId || !paymentId) {
+                setSaveMessage({ text: 'عوارض پسماند تسویه شده است یا اطلاعات پرداخت وجود ندارد', type: 'error' });
                 setTimeout(() => setSaveMessage(null), 3000);
                 return;
             }
@@ -866,26 +870,33 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                             {
                                 type: 'nosazi' as const,
                                 title: 'عوارض نوسازی و عمران شهری',
-                                amount: selectedUnit?.amount || chargeAmount,
-                                billId: selectedUnit?.billId || billId,
-                                paymentId: selectedUnit?.paymentId || paymentId
+                                amount: selectedUnit?.amount,
+                                billId: selectedUnit?.billId,
+                                paymentId: selectedUnit?.paymentId
                             },
                             {
                                 type: 'pasmand' as const,
                                 title: 'بهای خدمات مدیریت پسماند',
-                                amount: selectedUnit?.pasmandAmount || pasmandAmount,
-                                billId: selectedUnit?.pasmandBillId || pasmandBillId,
-                                paymentId: selectedUnit?.pasmandPaymentId || pasmandPaymentId
+                                amount: selectedUnit?.pasmandAmount,
+                                billId: selectedUnit?.pasmandBillId,
+                                paymentId: selectedUnit?.pasmandPaymentId
                             }
                         ].map(({ type, title, amount, billId, paymentId }) => {
-                            // بررسی وجود شناسه قبض و شناسه پرداخت
-                            const hasBillId = billId && billId !== '0' && billId !== 'null' && billId !== '-';
-                            const hasPaymentId = paymentId && paymentId !== '0' && paymentId !== 'null' && paymentId !== '-';
-                            const hasValidPayment = hasBillId && hasPaymentId && amount && amount > 0;
+                            // بررسی دقیق وجود اطلاعات معتبر
+                            const hasValidNosazi = amount !== null &&
+                                amount !== undefined &&
+                                amount > 0 &&
+                                billId !== null &&
+                                billId !== undefined &&
+                                billId !== '0' &&
+                                billId !== '' &&
+                                paymentId !== null &&
+                                paymentId !== undefined &&
+                                paymentId !== '0' &&
+                                paymentId !== '';
 
-                            // بررسی عدم بدهی (اگر شناسه قبض یا شناسه پرداخت وجود نداشته باشد)
-                            const isNoDebt = (!hasBillId || !hasPaymentId) && amount === null;
-                            const isDisabled = !hasValidPayment;
+                            // عدم بدهی: وقتی مبلغ null است یا 0 است یا شناسه‌ها وجود ندارند
+                            const isNoDebt = !hasValidNosazi;
 
                             return (
                                 <div key={type} className="border border-gray-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:shadow-md transition-shadow bg-white">
@@ -904,15 +915,12 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                                                 ) : (
                                                     <>
                                                         <p className="text-sm text-gray-500">
-                                                            مبلغ: <span className={amount ? 'text-gray-800' : 'text-gray-400'}>
+                                                            مبلغ: <span className="text-gray-800 font-medium">
                                                 {amount ? `${amount.toLocaleString()} ریال` : '-'}
                                             </span>
                                                         </p>
-                                                        {!hasBillId && (
-                                                            <span className="text-xs text-red-500">شناسه قبض موجود نیست</span>
-                                                        )}
-                                                        {!hasPaymentId && (
-                                                            <span className="text-xs text-red-500">شناسه پرداخت موجود نیست</span>
+                                                        {billId && (
+                                                            <span className="text-xs text-gray-400">شناسه قبض: {billId}</span>
                                                         )}
                                                     </>
                                                 )}
@@ -921,41 +929,37 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
                                     </div>
                                     <button
                                         onClick={() => handleSelectCharge(type)}
-                                        disabled={isDisabled || isNoDebt}
+                                        disabled={isNoDebt}
                                         className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-colors shrink-0 flex items-center gap-2 ${
-                                            !isDisabled && !isNoDebt
+                                            !isNoDebt
                                                 ? 'bg-[#145d6e] hover:bg-[#1a7a8f] text-white'
-                                                : isNoDebt
-                                                    ? 'bg-green-100 text-green-700 cursor-default'
-                                                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                                : 'bg-green-100 text-green-700 cursor-default'
                                         }`}
                                     >
                                         {isNoDebt ? (
-                                            'پرداخت نشده'
-                                        ) : !isDisabled ? (
+                                            'تسویه شده'
+                                        ) : (
                                             <>
                                                 پرداخت
                                                 <ChevronRight className="w-4 h-4 rotate-180" />
                                             </>
-                                        ) : (
-                                            'غیرقابل پرداخت'
                                         )}
                                     </button>
                                 </div>
                             );
                         })}
 
-                        {/* پیام زمانی که هیچ عوارضی برای پرداخت وجود ندارد */}
-                        {units.every(unit =>
-                            (!unit.amount || !unit.billId || !unit.paymentId) &&
-                            (!unit.pasmandAmount || !unit.pasmandBillId || !unit.pasmandPaymentId)
+                        {/* پیام زمانی که همه واحدها تسویه شده باشند */}
+                        {units.length > 0 && units.every(unit =>
+                            (!unit.amount || unit.amount === 0 || !unit.billId) &&
+                            (!unit.pasmandAmount || unit.pasmandAmount === 0 || !unit.pasmandBillId)
                         ) && (
                             <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-800">
                                 <div className="flex items-start gap-3">
                                     <CheckCircle className="w-5 h-5 shrink-0 mt-0.5 text-green-600" />
                                     <div>
                                         <p className="font-medium">وضعیت عوارض</p>
-                                        <p className="mt-1">هیچ عوارض قابل پرداختی برای این ملک وجود ندارد. تمامی عوارض تسویه شده است.</p>
+                                        <p className="mt-1">تمامی عوارض این ملک تسویه شده است. هیچ بدهی قابل پرداختی وجود ندارد.</p>
                                     </div>
                                 </div>
                             </div>
