@@ -103,7 +103,7 @@ export default function PaymentFailurePage() {
                         <XCircle className="w-12 h-12 text-red-600" />
                     </div>
                     
-                    <h1 className="text-2xl font-bold text-gray-800 mb-2">پرداخت ناموفق</h1>
+                    <h1 className="text-2xl  text-gray-800 mb-2">پرداخت ناموفق</h1>
                     <p className="text-gray-500 mb-1">متأسفانه تراکنش شما انجام نشد</p>
                     <p className="text-sm text-red-600 bg-red-50 rounded-lg p-2 mt-2">
                         {errorMsg}
@@ -128,7 +128,7 @@ export default function PaymentFailurePage() {
                         </div>
                         <div className="flex justify-between items-center pt-2 border-t border-gray-200">
                             <span className="text-sm text-gray-500">مبلغ:</span>
-                            <span className="text-lg font-bold text-red-600">
+                            <span className="text-lg  text-red-600">
                                 {paymentInfo.amount.toLocaleString()} ریال
                             </span>
                         </div>
