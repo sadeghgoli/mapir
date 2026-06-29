@@ -556,7 +556,7 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
             setSelectedCharge({
                 id: 'nosazi',
                 type: 'nosazi',
-                title: 'عوارض نوسازی و عمران',
+                title: 'عوارض نوسازی و عمران شهری',
                 amount: amount,
                 billId: billId,
                 paymentId: paymentId,
