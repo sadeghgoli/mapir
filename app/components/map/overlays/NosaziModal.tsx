@@ -523,7 +523,6 @@ export default function NosaziModal({ isOpen, onClose, nosaziData }: NosaziModal
             setSaveMessage({ text: 'خطا در ارتباط با سرور', type: 'error' });
             setTimeout(() => setSaveMessage(null), 3000);
         } finally {
-            setIsProcessing(false);
         }
     };
 
