@@ -1,8 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-    /* config options here */
-    // غیرفعال کردن بررسی TypeScript در build
+    generateBuildId: async () => `build-${Date.now()}`,
+    
     typescript: {
         ignoreBuildErrors: true,
     },
@@ -16,7 +16,6 @@ const nextConfig: NextConfig = {
                 source: '/api/nosazi/:path*',
                 destination: 'https://regpaidbill.sabzevar.ir/:path*',
             },
-            // مسیر برای AmardDataHandler
             {
                 source: '/api/AmardDataHandler.ashx',
                 destination: 'https://regpaidbill.sabzevar.ir/AmardDataHandler.ashx',
