@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
+import { useLayer } from '@/app/contexts/LayerContext';
 
 // Import پویا با تنظیمات کامل
 const MapContainer = dynamic(
@@ -16,11 +17,22 @@ import BaseTileLayer from './layers/BaseTileLayer';
 import NosaziLayer from './layers/NosaziLayer';
 import ZoomControls from './overlays/ZoomControls';
 
+const KoocheLayer = dynamic(
+    () => import('./layers/KoocheLayer'),
+    { ssr: false }
+);
+
+const ImportantPointsLayer = dynamic(
+    () => import('./layers/ImportantPointsLayer'),
+    { ssr: false }
+);
+
 const CENTER: [number, number] = [36.21, 57.667];
 
 function MapComponent() {
     const [isMounted, setIsMounted] = useState(false);
     const [isLoadingNosazi, setIsLoadingNosazi] = useState(false);
+    const { activeLayer } = useLayer();
 
     useEffect(() => {
         setIsMounted(true);
@@ -40,7 +52,13 @@ function MapComponent() {
                 style={{ background: '#f0f0f0' }}
             >
                 <BaseTileLayer />
-                <NosaziLayer onLoadingChange={setIsLoadingNosazi} />
+
+                {activeLayer === 'toll' && (
+                    <NosaziLayer onLoadingChange={setIsLoadingNosazi} />
+                )}
+                {activeLayer === 'kooche' && <KoocheLayer />}
+                {activeLayer === 'points' && <ImportantPointsLayer />}
+
                 <ZoomControls />
             </MapContainer>
 

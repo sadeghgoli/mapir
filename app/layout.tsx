@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/app/contexts/AuthContext";
+import { LayerProvider } from "@/app/contexts/LayerContext";
 import { Suspense } from 'react';
 
 export const metadata: Metadata = {
@@ -27,7 +28,9 @@ export default function RootLayout({
         <Suspense fallback={<div>در حال بارگذاری احراز هویت...</div>}>
 
         <AuthProvider>
-            {children}
+            <LayerProvider>
+                {children}
+            </LayerProvider>
         </AuthProvider>
         </Suspense>
 
