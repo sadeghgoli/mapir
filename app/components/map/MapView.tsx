@@ -1,10 +1,9 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useLayer } from '@/app/contexts/LayerContext';
 
-// Import پویا با تنظیمات کامل
 const MapContainer = dynamic(
     () => import('react-leaflet').then((mod) => mod.MapContainer),
     {
@@ -17,22 +16,28 @@ import BaseTileLayer from './layers/BaseTileLayer';
 import NosaziLayer from './layers/NosaziLayer';
 import ZoomControls from './overlays/ZoomControls';
 
-const KoocheLayer = dynamic(
-    () => import('./layers/KoocheLayer'),
-    { ssr: false }
-);
+const KoocheLayer = dynamic(() => import('./layers/KoocheLayer'), { ssr: false });
+const ImportantPointsLayer = dynamic(() => import('./layers/ImportantPointsLayer'), { ssr: false });
+const MapUrlSync = dynamic(() => import('./MapUrlSync'), { ssr: false });
 
-const ImportantPointsLayer = dynamic(
-    () => import('./layers/ImportantPointsLayer'),
-    { ssr: false }
-);
-
-const CENTER: [number, number] = [36.21, 57.667];
+function readUrlCoords(): { lat: number; lng: number; zoom: number } {
+    if (typeof window === 'undefined') return { lat: 36.21, lng: 57.667, zoom: 18 };
+    const params = new URLSearchParams(window.location.search);
+    const lat = parseFloat(params.get('lat') || '');
+    const lng = parseFloat(params.get('lng') || '');
+    const zoom = parseInt(params.get('zoom') || '');
+    return {
+        lat: !isNaN(lat) && lat >= -90 && lat <= 90 ? lat : 36.21,
+        lng: !isNaN(lng) && lng >= -180 && lng <= 180 ? lng : 57.667,
+        zoom: !isNaN(zoom) && zoom >= 1 && zoom <= 20 ? zoom : 18,
+    };
+}
 
 function MapComponent() {
     const [isMounted, setIsMounted] = useState(false);
     const [isLoadingNosazi, setIsLoadingNosazi] = useState(false);
     const { activeLayer } = useLayer();
+    const initialCoords = useRef(readUrlCoords());
 
     useEffect(() => {
         setIsMounted(true);
@@ -45,8 +50,8 @@ function MapComponent() {
     return (
         <div className="relative w-full h-full">
             <MapContainer
-                center={CENTER}
-                zoom={18}
+                center={[initialCoords.current.lat, initialCoords.current.lng]}
+                zoom={initialCoords.current.zoom}
                 zoomControl={false}
                 className="w-full h-full z-0"
                 style={{ background: '#f0f0f0' }}
@@ -59,10 +64,10 @@ function MapComponent() {
                 {activeLayer === 'kooche' && <KoocheLayer />}
                 {activeLayer === 'points' && <ImportantPointsLayer />}
 
+                <MapUrlSync />
                 <ZoomControls />
             </MapContainer>
 
-            {/* لودر سراسری روی نقشه */}
             {isLoadingNosazi && (
                 <div className="absolute inset-0 flex items-center justify-center z-[2000] bg-black/20 backdrop-blur-sm pointer-events-none">
                     <div className="bg-white rounded-lg shadow-xl p-4 flex items-center gap-3 pointer-events-auto" dir="rtl">

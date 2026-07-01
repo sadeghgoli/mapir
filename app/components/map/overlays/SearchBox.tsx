@@ -7,6 +7,7 @@ import {
 import {Tooltip} from "react-tooltip";
 import SearchBox2 from "@/app/components/map/boxes/SearchBox";
 import HelpModal from '../overlays/HelpModal';
+import CoordSearch from './CoordSearch';
 import {useState} from "react";
 
 export default function SearchBox() {
@@ -26,6 +27,8 @@ export default function SearchBox() {
             "
         >
         <SearchBox2/>
+
+            <CoordSearch />
 
             {/*<div  id="star">*/}
             {/*    <button*/}
