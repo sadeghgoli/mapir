@@ -8,6 +8,7 @@ import {
     CreditCard,
     Route,
     MapPin,
+    Check,
 } from 'lucide-react';
 import { useMap } from 'react-leaflet';
 import { useState, useCallback, useEffect } from 'react';
@@ -22,16 +23,15 @@ const layerIconMap: Record<string, React.ReactNode> = {
 export default function ZoomControls() {
     const [isLocating, setIsLocating] = useState(false);
     const [mapReady, setMapReady] = useState(false);
-    const { activeLayer, setActiveLayer, isPanelOpen, togglePanel } = useLayer();
+    const { activeLayers, toggleLayer, isPanelOpen, togglePanel } = useLayer();
 
-    // این خط ممکن است در ابتدا خطا بدهد، اما catch می‌کنیم
     let map;
     try {
         map = useMap();
         if (map && !mapReady) setMapReady(true);
     } catch (error) {
         console.warn('Map not ready yet:', error);
-        return null; // یا نمایش placeholder
+        return null;
     }
 
     if (!map) {
@@ -117,19 +117,22 @@ export default function ZoomControls() {
                 {isPanelOpen && (
                     <>
                         <div className="fixed inset-0 z-40" onClick={() => togglePanel()} />
-                        <div className="absolute left-0 bottom-full mb-2 z-50 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-gray-100 py-2 min-w-[210px] animate-fadeIn">
+                        <div className="absolute left-0 bottom-full mb-2 z-50 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-gray-100 py-2 min-w-[220px] animate-fadeIn">
                             {AVAILABLE_LAYERS.map((layer) => {
-                                const isActive = activeLayer === layer.id;
+                                const isActive = activeLayers.includes(layer.id);
                                 return (
                                     <button
                                         key={layer.id}
-                                        onClick={() => { setActiveLayer(layer.id); togglePanel(); }}
-                                        className={`w-full px-4 py-2.5 flex items-center gap-3 text-right transition-colors duration-150 border-r-3 ${isActive ? 'bg-blue-50 border-r-blue-600' : 'border-r-transparent hover:bg-gray-50'}`}
+                                        onClick={() => toggleLayer(layer.id)}
+                                        className={`w-full px-4 py-2.5 flex items-center gap-3 text-right transition-colors duration-150 ${isActive ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
                                     >
+                                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${isActive ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}>
+                                            {isActive && <Check size={14} className="text-white" />}
+                                        </div>
                                         <span className={isActive ? 'text-blue-600' : 'text-gray-500'}>
                                             {layerIconMap[layer.icon]}
                                         </span>
-                                        <div className="flex-1 min-w-0">
+                                        <div className="flex-1 min-w-0 text-right">
                                             <div className={`text-sm font-medium ${isActive ? 'text-blue-700' : 'text-gray-800'}`}>
                                                 {layer.name}
                                             </div>
@@ -137,9 +140,6 @@ export default function ZoomControls() {
                                                 {layer.description}
                                             </div>
                                         </div>
-                                        {isActive && (
-                                            <span className="w-2 h-2 rounded-full bg-blue-600 flex-shrink-0" />
-                                        )}
                                     </button>
                                 );
                             })}

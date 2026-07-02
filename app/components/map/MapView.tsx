@@ -19,6 +19,7 @@ import ZoomControls from './overlays/ZoomControls';
 const KoocheLayer = dynamic(() => import('./layers/KoocheLayer'), { ssr: false });
 const ImportantPointsLayer = dynamic(() => import('./layers/ImportantPointsLayer'), { ssr: false });
 const MapUrlSync = dynamic(() => import('./MapUrlSync'), { ssr: false });
+const PositionMarker = dynamic(() => import('./PositionMarker'), { ssr: false });
 
 function readUrlCoords(): { lat: number; lng: number; zoom: number } {
     if (typeof window === 'undefined') return { lat: 36.21, lng: 57.667, zoom: 18 };
@@ -36,7 +37,7 @@ function readUrlCoords(): { lat: number; lng: number; zoom: number } {
 function MapComponent() {
     const [isMounted, setIsMounted] = useState(false);
     const [isLoadingNosazi, setIsLoadingNosazi] = useState(false);
-    const { activeLayer } = useLayer();
+    const { activeLayers } = useLayer();
     const initialCoords = useRef(readUrlCoords());
 
     useEffect(() => {
@@ -58,13 +59,14 @@ function MapComponent() {
             >
                 <BaseTileLayer />
 
-                {activeLayer === 'toll' && (
-                    <NosaziLayer onLoadingChange={setIsLoadingNosazi} />
+                {activeLayers.includes('toll') && (
+                    <NosaziLayer key="toll" onLoadingChange={setIsLoadingNosazi} />
                 )}
-                {activeLayer === 'kooche' && <KoocheLayer />}
-                {activeLayer === 'points' && <ImportantPointsLayer />}
+                {activeLayers.includes('kooche') && <KoocheLayer key="kooche" />}
+                {activeLayers.includes('points') && <ImportantPointsLayer key="points" />}
 
                 <MapUrlSync />
+                <PositionMarker />
                 <ZoomControls />
             </MapContainer>
 

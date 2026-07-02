@@ -140,6 +140,21 @@ export default function NosaziLayer({ onLoadingChange }: NosaziLayerProps) {
         onLoadingChange?.(loading);
     }, [loading, onLoadingChange]);
 
+    // پاکسازی لایه GeoJSON در زمان unmount
+    useEffect(() => {
+        return () => {
+            if (geoLayerRef.current) {
+                geoLayerRef.current.remove();
+                geoLayerRef.current = null;
+            }
+            layerMap.clear();
+            featuresCache.clear();
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+        };
+    }, []);
+
     // بارگذاری leaflet
     useEffect(() => {
         import('leaflet').then((leaflet) => {
