@@ -3,24 +3,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMap, useMapEvents, Marker } from 'react-leaflet';
 import { divIcon } from 'leaflet';
+import { getUrlParams } from '@/app/utils/urlManager';
 
 function readMarkerFromUrl(): [number, number] | null {
-    if (typeof window === 'undefined') return null;
-    const params = new URLSearchParams(window.location.search);
-    const mlat = parseFloat(params.get('mlat') || '');
-    const mlng = parseFloat(params.get('mlng') || '');
+    const p = getUrlParams();
+    const mlat = parseFloat(p.mlat || '');
+    const mlng = parseFloat(p.mlng || '');
     if (!isNaN(mlat) && !isNaN(mlng) && mlat >= -90 && mlat <= 90 && mlng >= -180 && mlng <= 180) {
         return [mlat, mlng];
     }
     return null;
-}
-
-function writeMarkerToUrl(lat: number, lng: number) {
-    if (typeof window === 'undefined') return;
-    const url = new URL(window.location.href);
-    url.searchParams.set('mlat', lat.toFixed(6));
-    url.searchParams.set('mlng', lng.toFixed(6));
-    window.history.replaceState({}, '', url.toString());
 }
 
 const markerIcon = divIcon({
@@ -50,12 +42,7 @@ export default function PositionMarker() {
         if (initDone.current) return;
         initDone.current = true;
         const urlMarker = readMarkerFromUrl();
-        if (urlMarker) {
-            setPosition(urlMarker);
-        } else {
-            const c = map.getCenter();
-            setPosition([c.lat, c.lng]);
-        }
+        setPosition(urlMarker ?? [map.getCenter().lat, map.getCenter().lng]);
     }, [map]);
 
     useMapEvents({
@@ -64,9 +51,7 @@ export default function PositionMarker() {
             setPosition([c.lat, c.lng]);
         },
         click: (e) => {
-            const { lat, lng } = e.latlng;
-            setPosition([lat, lng]);
-            writeMarkerToUrl(lat, lng);
+            setPosition([e.latlng.lat, e.latlng.lng]);
         },
     });
 

@@ -6,6 +6,8 @@ import NosaziModal from '../overlays/NosaziModal';
 import 'leaflet/dist/leaflet.css';
 
 // هوک سفارشی برای مدیریت URL
+import { updateUrl } from '@/app/utils/urlManager';
+
 function useUrlParam(paramName: string) {
     const [paramValue, setParamValue] = useState<string | null>(null);
 
@@ -23,13 +25,7 @@ function useUrlParam(paramName: string) {
     }, [paramName]);
 
     const updateParam = (value: string | null) => {
-        const url = new URL(window.location.href);
-        if (value) {
-            url.searchParams.set(paramName, value);
-        } else {
-            url.searchParams.delete(paramName);
-        }
-        window.history.pushState({}, '', url.toString());
+        updateUrl({ [paramName]: value }, 'push');
         setParamValue(value);
     };
 

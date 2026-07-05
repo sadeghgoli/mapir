@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import { updateUrl, getUrlParams } from '@/app/utils/urlManager';
 
 export interface LayerConfig {
     id: string;
@@ -33,30 +34,15 @@ export const AVAILABLE_LAYERS: LayerConfig[] = [
 const ALL_IDS = AVAILABLE_LAYERS.map(l => l.id);
 
 function readLayersFromUrl(): string[] {
-    if (typeof window === 'undefined') return ['toll'];
-    const params = new URLSearchParams(window.location.search);
-    const raw = params.get('layers');
-    if (!raw) return ['toll'];
-    return raw.split(',').filter(id => ALL_IDS.includes(id));
-}
-
-function writeLayersToUrl(ids: string[]) {
-    if (typeof window === 'undefined') return;
-    const url = new URL(window.location.href);
-    if (ids.length > 0 && ids.length < ALL_IDS.length) {
-        url.searchParams.set('layers', ids.join(','));
-    } else {
-        url.searchParams.delete('layers');
-    }
-    window.history.replaceState({}, '', url.toString());
+    const p = getUrlParams();
+    if (!p.layers) return ['toll'];
+    return p.layers.split(',').filter(id => ALL_IDS.includes(id));
 }
 
 interface LayerContextType {
     activeLayers: string[];
     toggleLayer: (layerId: string) => void;
-    setActiveLayers: (ids: string[]) => void;
     isPanelOpen: boolean;
-    setPanelOpen: (open: boolean) => void;
     togglePanel: () => void;
 }
 
@@ -73,7 +59,12 @@ export function LayerProvider({ children }: { children: ReactNode }) {
     }, []);
 
     useEffect(() => {
-        if (hydrated) writeLayersToUrl(activeLayers);
+        if (!hydrated) return;
+        updateUrl({
+            layers: activeLayers.length > 0 && activeLayers.length < ALL_IDS.length
+                ? activeLayers.join(',')
+                : null,
+        });
     }, [activeLayers, hydrated]);
 
     const toggleLayer = useCallback((layerId: string) => {
@@ -86,15 +77,10 @@ export function LayerProvider({ children }: { children: ReactNode }) {
         });
     }, []);
 
-    const togglePanel = useCallback(() => {
-        setPanelOpen(prev => !prev);
-    }, []);
+    const togglePanel = useCallback(() => setPanelOpen(prev => !prev), []);
 
     return (
-        <LayerContext.Provider value={{
-            activeLayers, toggleLayer, setActiveLayers,
-            isPanelOpen, setPanelOpen, togglePanel,
-        }}>
+        <LayerContext.Provider value={{ activeLayers, toggleLayer, isPanelOpen, togglePanel }}>
             {children}
         </LayerContext.Provider>
     );
