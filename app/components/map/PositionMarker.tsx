@@ -55,7 +55,6 @@ export default function PositionMarker() {
         } else {
             const c = map.getCenter();
             setPosition([c.lat, c.lng]);
-            writeMarkerToUrl(c.lat, c.lng);
         }
     }, [map]);
 
@@ -63,7 +62,6 @@ export default function PositionMarker() {
         moveend: () => {
             const c = map.getCenter();
             setPosition([c.lat, c.lng]);
-            writeMarkerToUrl(c.lat, c.lng);
         },
         click: (e) => {
             const { lat, lng } = e.latlng;

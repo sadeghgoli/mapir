@@ -23,6 +23,10 @@ function updateUrlCoords(lat: number, lng: number, zoom: number) {
     url.searchParams.set('lat', lat.toFixed(6));
     url.searchParams.set('lng', lng.toFixed(6));
     url.searchParams.set('zoom', zoom.toString());
+    if (url.searchParams.has('mlat')) {
+        url.searchParams.delete('mlat');
+        url.searchParams.delete('mlng');
+    }
     window.history.replaceState({}, '', url.toString());
 }
 
