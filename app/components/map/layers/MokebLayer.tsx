@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Marker, Popup } from 'react-leaflet';
+import { useEffect, useState, useRef } from 'react';
+import { Marker, Popup, useMap } from 'react-leaflet';
 import { divIcon } from 'leaflet';
+import { updateUrl, getUrlParams } from '@/app/utils/urlManager';
 import MokebModal from '../overlays/MokebModal';
 
 interface ApiMokeb {
@@ -54,21 +55,46 @@ function makeIcon(color: string) {
 }
 
 export default function MokebLayer() {
+    const map = useMap();
     const [points, setPoints] = useState<ApiMokeb[]>([]);
     const [selected, setSelected] = useState<ApiMokeb | null>(null);
     const [loading, setLoading] = useState(true);
+    const initDone = useRef(false);
+
+    const urlMokebId = typeof window !== 'undefined'
+        ? getUrlParams().mokebId
+        : undefined;
+
+    const openMokeb = (item: ApiMokeb) => {
+        setSelected(item);
+        updateUrl({ mokebId: item.id });
+        map.setView([item.latitude, item.longitude], 18, { animate: true, duration: 1 });
+    };
 
     useEffect(() => {
         fetch('/api/map-point/api/MapPoint?page=1&pageSize=50')
             .then(res => res.json())
             .then((data: ApiResponse) => {
-                if (data.success) setPoints(data.data);
+                if (data.success) {
+                    setPoints(data.data);
+                    if (urlMokebId && !initDone.current) {
+                        const found = data.data.find(p => p.id === urlMokebId);
+                        if (found) {
+                            initDone.current = true;
+                            setSelected(found);
+                            map.setView([found.latitude, found.longitude], 18, { animate: false });
+                        }
+                    }
+                }
             })
             .catch(console.error)
             .finally(() => setLoading(false));
     }, []);
 
-    const handleClick = (item: ApiMokeb) => setSelected(item);
+    const handleCloseModal = () => {
+        setSelected(null);
+        updateUrl({ mokebId: null });
+    };
 
     if (loading || points.length === 0) return null;
 
@@ -79,14 +105,14 @@ export default function MokebLayer() {
                     key={item.id}
                     position={[item.latitude, item.longitude]}
                     icon={makeIcon(item.categoryColor || '#ff6600')}
-                    eventHandlers={{ click: () => handleClick(item) }}
+                    eventHandlers={{ click: () => openMokeb(item) }}
                 >
                     <Popup>
                         <div style={{ textAlign: 'center', fontFamily: 'IRANSans, sans-serif', minWidth: 150 }}>
                             <strong style={{ fontSize: 14, color: '#333' }}>{item.title}</strong>
                             <p style={{ fontSize: 11, margin: '6px 0 0', color: '#666' }}>{item.description}</p>
                             <button
-                                onClick={() => handleClick(item)}
+                                onClick={() => openMokeb(item)}
                                 style={{
                                     marginTop: 8, padding: '4px 16px',
                                     background: '#2563eb', color: 'white',
@@ -103,7 +129,7 @@ export default function MokebLayer() {
 
             <MokebModal
                 isOpen={!!selected}
-                onClose={() => setSelected(null)}
+                onClose={handleCloseModal}
                 data={selected}
             />
         </>

@@ -54,7 +54,12 @@ export function LayerProvider({ children }: { children: ReactNode }) {
     const [hydrated, setHydrated] = useState(false);
 
     useEffect(() => {
-        setActiveLayers(readLayersFromUrl());
+        const fromUrl = readLayersFromUrl();
+        const p = getUrlParams();
+        if (p.mokebId && !fromUrl.includes('mokeb')) {
+            fromUrl.push('mokeb');
+        }
+        setActiveLayers(fromUrl);
         setHydrated(true);
     }, []);
 
