@@ -28,6 +28,10 @@ const nextConfig: NextConfig = {
                 source: '/tile/:path*',
                 destination: 'https://tile.openstreetmap.org/:path*',
             },
+            {
+                source: '/api/map-point/:path*',
+                destination: 'http://apiweb-locationsmap.sabzevar.ir:5020/:path*',
+            },
         ];
     },
 };
