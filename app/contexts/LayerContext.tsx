@@ -35,7 +35,7 @@ const ALL_IDS = AVAILABLE_LAYERS.map(l => l.id);
 
 function readLayersFromUrl(): string[] {
     const p = getUrlParams();
-    if (!p.layers) return ['toll'];
+    if (!p.layers) return [];
     return p.layers.split(',').filter(id => ALL_IDS.includes(id));
 }
 
@@ -49,7 +49,7 @@ interface LayerContextType {
 const LayerContext = createContext<LayerContextType | undefined>(undefined);
 
 export function LayerProvider({ children }: { children: ReactNode }) {
-    const [activeLayers, setActiveLayers] = useState<string[]>(['toll']);
+    const [activeLayers, setActiveLayers] = useState<string[]>([]);
     const [isPanelOpen, setPanelOpen] = useState(false);
     const [hydrated, setHydrated] = useState(false);
 
@@ -70,8 +70,7 @@ export function LayerProvider({ children }: { children: ReactNode }) {
     const toggleLayer = useCallback((layerId: string) => {
         setActiveLayers(prev => {
             if (prev.includes(layerId)) {
-                const next = prev.filter(id => id !== layerId);
-                return next.length === 0 ? [layerId] : next;
+                return prev.filter(id => id !== layerId);
             }
             return [...prev, layerId];
         });
