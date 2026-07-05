@@ -3,7 +3,9 @@
 import { useState } from 'react';
 import { Marker, Popup } from 'react-leaflet';
 import { divIcon } from 'leaflet';
+import { HandFist } from 'lucide-react';
 import MokebModal from '../overlays/MokebModal';
+import { renderToString } from 'react-dom/server';
 
 interface MokebItem {
     id: string;
@@ -75,18 +77,31 @@ const mokebData: MokebItem[] = [
 const iconColors = ['#e74c3c', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22'];
 
 function makeIcon(color: string) {
+    // رندر آیکون Hand به صورت SVG
+    const handSvg = renderToString(
+        <HandFist 
+            size={20} 
+            color="white" 
+            strokeWidth={2}
+        />
+    );
+
     return divIcon({
         className: '',
         html: `<div style="
-            width: 22px; height: 22px;
+            width: 40px; 
+            height: 40px;
             background: ${color};
             border: 3px solid white;
             border-radius: 50%;
             box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-            display: flex; align-items: center; justify-content: center;
-        "><svg width="10" height="10" viewBox="0 0 24 24" fill="white"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg></div>`,
-        iconSize: [22, 22],
-        iconAnchor: [11, 11],
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            padding: 8px;
+        ">${handSvg}</div>`,
+        iconSize: [40, 40],
+        iconAnchor: [20, 20],
     });
 }
 
