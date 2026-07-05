@@ -24,10 +24,10 @@ export const AVAILABLE_LAYERS: LayerConfig[] = [
         icon: 'Route',
     },
     {
-        id: 'points',
-        name: 'نقاط مهم',
-        description: 'نمایش نقاط مهم و اماکن دیدنی (داده تستی)',
-        icon: 'MapPin',
+        id: 'mokeb',
+        name: 'موکب‌های شهرداری',
+        description: 'لیست موقعیت موکب و اسکان‌های شهر سبزوار',
+        icon: 'HandFist',
     },
 ];
 

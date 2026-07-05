@@ -9,6 +9,7 @@ import {
     Route,
     MapPin,
     Check,
+    HandFist,
 } from 'lucide-react';
 import { useMap } from 'react-leaflet';
 import { useState, useCallback, useEffect } from 'react';
@@ -18,6 +19,7 @@ const layerIconMap: Record<string, React.ReactNode> = {
     CreditCard: <CreditCard size={16} />,
     Route: <Route size={16} />,
     MapPin: <MapPin size={16} />,
+    HandFist: <HandFist size={16} />,
 };
 
 export default function ZoomControls() {

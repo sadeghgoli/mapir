@@ -17,7 +17,7 @@ import NosaziLayer from './layers/NosaziLayer';
 import ZoomControls from './overlays/ZoomControls';
 
 const KoocheLayer = dynamic(() => import('./layers/KoocheLayer'), { ssr: false });
-const ImportantPointsLayer = dynamic(() => import('./layers/ImportantPointsLayer'), { ssr: false });
+const MokebLayer = dynamic(() => import('./layers/MokebLayer'), { ssr: false });
 const MapUrlSync = dynamic(() => import('./MapUrlSync'), { ssr: false });
 const PositionMarker = dynamic(() => import('./PositionMarker'), { ssr: false });
 
@@ -63,7 +63,7 @@ function MapComponent() {
                     <NosaziLayer key="toll" onLoadingChange={setIsLoadingNosazi} />
                 )}
                 {activeLayers.includes('kooche') && <KoocheLayer key="kooche" />}
-                {activeLayers.includes('points') && <ImportantPointsLayer key="points" />}
+                {activeLayers.includes('mokeb') && <MokebLayer key="mokeb" />}
 
                 <MapUrlSync />
                 <PositionMarker />
