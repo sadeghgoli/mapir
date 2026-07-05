@@ -139,6 +139,7 @@ export default function NosaziLayer({ onLoadingChange }: NosaziLayerProps) {
     // پاکسازی لایه GeoJSON در زمان unmount
     useEffect(() => {
         return () => {
+            onLoadingChange?.(false);
             if (geoLayerRef.current) {
                 geoLayerRef.current.remove();
                 geoLayerRef.current = null;
