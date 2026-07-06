@@ -28,7 +28,7 @@ export default function SearchBox() {
         >
         <SearchBox2/>
 
-            <CoordSearch />
+            {/* <CoordSearch /> */}
 
             {/*<div  id="star">*/}
             {/*    <button*/}
