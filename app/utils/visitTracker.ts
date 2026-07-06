@@ -82,6 +82,12 @@ export function trackVisit() {
         const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
         stored.unshift(record);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+
+        fetch('/api/visits', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(record),
+        }).catch(() => {});
     } catch (e) {
         console.warn('Visit tracking failed:', e);
     }

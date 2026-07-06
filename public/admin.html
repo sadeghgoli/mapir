@@ -213,6 +213,9 @@
         }
         .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
         .empty-state p { font-size: 14px; }
+        .loading { text-align: center; padding: 40px; color: #888; font-size: 16px; }
+        .spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid #e0e0e0; border-top-color: #2563eb; border-radius: 50%; animation: spin .6s linear infinite; margin-left: 8px; vertical-align: middle; }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
@@ -258,21 +261,29 @@
 <div class="table-wrap" id="tableWrap"></div>
 
 <script>
-const STORAGE_KEY = 'site_visits';
 const PAGE_SIZE = 15;
+let allVisits = [];
+let loading = false;
 
-function getVisits() {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
-    catch { return []; }
+async function fetchVisits() {
+    loading = true;
+    renderLoading();
+    try {
+        const res = await fetch('/api/visits');
+        allVisits = await res.json();
+    } catch {
+        allVisits = [];
+    }
+    loading = false;
+    render();
 }
 
 function getFiltered() {
-    const all = getVisits();
     const src = document.getElementById('filterSource').value.trim().toLowerCase();
     const cmp = document.getElementById('filterCampaign').value.trim().toLowerCase();
     const med = document.getElementById('filterMedium').value;
     const dev = document.getElementById('filterDevice').value;
-    return all.filter(v => {
+    return allVisits.filter(v => {
         if (src && !(v.source || '').toLowerCase().includes(src) && !(v.campaign || '').toLowerCase().includes(src)) return false;
         if (cmp && !(v.campaign || '').toLowerCase().includes(cmp)) return false;
         if (med && v.medium !== med) return false;
@@ -281,11 +292,17 @@ function getFiltered() {
     });
 }
 
+function renderLoading() {
+    document.getElementById('statsGrid').innerHTML = '';
+    document.getElementById('chartsGrid').innerHTML = '';
+    document.getElementById('tableWrap').innerHTML = '<div class="loading"><span class="spinner"></span>در حال بارگذاری بازدیدها...</div>';
+}
+
 function render() {
-    const all = getVisits();
+    if (loading) return;
+    const all = allVisits;
     const filtered = getFiltered();
 
-    // Stats
     const uniqueSources = [...new Set(all.map(v => v.source).filter(Boolean))].length;
     const uniqueCampaigns = [...new Set(all.map(v => v.campaign).filter(Boolean))].length;
     document.getElementById('statsGrid').innerHTML = `
@@ -297,13 +314,11 @@ function render() {
         <div class="stat-card"><div class="num">${all.filter(v => v.device === 'کامپیوتر').length}</div><div class="label">کامپیوتر</div></div>
     `;
 
-    // Charts
     renderChart('source', 'منبع (utm_source)', filtered);
     renderChart('medium', 'مدیوم (utm_medium)', filtered);
     renderChart('campaign', 'کمپین (utm_campaign)', filtered);
     renderChart('device', 'نوع دستگاه', filtered);
 
-    // Table
     renderTable(filtered);
 }
 
@@ -405,14 +420,16 @@ function sortTable(field) {
     renderTable(data);
 }
 
-function clearData() {
+async function clearData() {
     if (!confirm('همه بازدیدها پاک شود؟')) return;
-    localStorage.removeItem(STORAGE_KEY);
-    render();
+    try {
+        await fetch('/api/visits', { method: 'DELETE' });
+    } catch {}
+    await fetchVisits();
 }
 
 function exportCSV() {
-    const all = getVisits();
+    const all = allVisits;
     if (!all.length) return alert('داده‌ای برای خروجی وجود ندارد');
     const headers = ['تاریخ', 'ساعت', 'منبع', 'مدیوم', 'کمپین', 'دستگاه', 'مرورگر', 'سیستم‌عامل', 'ارجاع‌دهنده', 'URL'];
     const rows = all.map(v => [
@@ -428,7 +445,7 @@ function exportCSV() {
     URL.revokeObjectURL(a.href);
 }
 
-render();
+fetchVisits();
 </script>
 </body>
 </html>
