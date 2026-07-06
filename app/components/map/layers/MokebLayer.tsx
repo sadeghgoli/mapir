@@ -28,8 +28,8 @@ interface ApiResponse {
 }
 
 const iconMap: Record<string, string> = {
-    eskan: '/images/logo1.png',
-    mokeb: '/images/logo2.png',
+    eskan: '/images/logo2.png',
+    mokeb: '/images/logo1.png',
 };
 
 function makeIcon(categoryIcon: string) {
@@ -37,8 +37,7 @@ function makeIcon(categoryIcon: string) {
     return divIcon({
         className: '',
         html: `<div style="
-            width: 50px; height: 50px;
-            border-radius: 50%;
+            width: 50px; 
             overflow: hidden;
             display: flex; align-items: center; justify-content: center;
         ">

@@ -77,7 +77,8 @@ export default function MokebModal({ isOpen, onClose, data }: MokebModalProps) {
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-center
-                            bg-[#28a745] text-white hover:bg-[#218838] transition-colors"
+                            bg-[#28a745] hover:bg-[#218838] transition-colors"
+                            style={{color: 'white'}}
                     >
                         مسیریابی در بلد
                     </a>
@@ -87,6 +88,8 @@ export default function MokebModal({ isOpen, onClose, data }: MokebModalProps) {
                         rel="noopener noreferrer"
                         className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-center
                             bg-[#FF5722] text-white hover:bg-[#e64a19] transition-colors"
+                            style={{color: 'white'}}
+
                     >
                         مسیریابی در نشان
                     </a>
