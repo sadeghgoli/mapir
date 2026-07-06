@@ -1,6 +1,7 @@
 'use client';
 
 import { X, User, Clock, Eye } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 
 interface MokebData {
     id: string;
@@ -32,7 +33,25 @@ function formatDate(dateStr?: string) {
 }
 
 export default function MokebModal({ isOpen, onClose, data }: MokebModalProps) {
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        setIsMobile(/Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
+    }, []);
+
+    const openMap = useCallback((url: string) => {
+        window.open(url, '_blank', 'noopener,noreferrer');
+    }, []);
+
     if (!isOpen || !data) return null;
+
+    const lat = data.latitude;
+    const lng = data.longitude;
+
+    const neshanMapUrl = `https://map.neshan.org/?t=0&c=${lat},${lng}&z=16`;
+    const showMapUrl = isMobile
+        ? `neshan://show?t=0&c=${lat},${lng}&z=16`
+        : `https://show.neshan.org/#/map?t=0&c=${lat},${lng}&z=16`;
 
     return (
         <div
@@ -72,27 +91,20 @@ export default function MokebModal({ isOpen, onClose, data }: MokebModalProps) {
                 </div>
 
                 <div className="flex gap-3 mt-5">
-                    <a
-                        href={`https://balad.ir/?lat=${data.latitude}&lng=${data.longitude}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-center
+                    <button
+                        onClick={() => openMap(neshanMapUrl)}
+                        className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-center text-white
                             bg-[#28a745] hover:bg-[#218838] transition-colors"
-                            style={{color: 'white'}}
                     >
                         مسیریابی در بلد
-                    </a>
-                    <a
-                        href={`https://neshan.org/maps/geo/@${data.latitude},${data.longitude},18z`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-center
-                            bg-[#FF5722] text-white hover:bg-[#e64a19] transition-colors"
-                            style={{color: 'white'}}
-
+                    </button>
+                    <button
+                        onClick={() => openMap(showMapUrl)}
+                        className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-center text-white
+                            bg-[#FF5722] hover:bg-[#e64a19] transition-colors"
                     >
                         مسیریابی در نشان
-                    </a>
+                    </button>
                 </div>
             </div>
         </div>
