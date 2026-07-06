@@ -27,7 +27,13 @@ interface ApiResponse {
     totalCount: number;
 }
 
-function makeIcon(color: string) {
+const iconMap: Record<string, string> = {
+    eskan: '/images/logo1.png',
+    mokeb: '/images/logo2.png',
+};
+
+function makeIcon(categoryIcon: string) {
+    const src = iconMap[categoryIcon] || '/images/logo2.png';
     return divIcon({
         className: '',
         html: `<div style="
@@ -37,8 +43,8 @@ function makeIcon(color: string) {
             display: flex; align-items: center; justify-content: center;
         ">
             <img 
-                src="/images/logo2.png" 
-                alt="موکب" 
+                src="${src}" 
+                alt="${categoryIcon}" 
                 style="width: 100%; height: 100%; object-fit: cover;"
             />
         </div>
@@ -104,7 +110,7 @@ export default function MokebLayer() {
                 <Marker
                     key={item.id}
                     position={[item.latitude, item.longitude]}
-                    icon={makeIcon(item.categoryColor || '#ff6600')}
+                    icon={makeIcon(item.categoryIcon)}
                     eventHandlers={{
                         mouseover: (e) => {
                             const marker = e.target;
