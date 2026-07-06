@@ -25,7 +25,7 @@ export const AVAILABLE_LAYERS: LayerConfig[] = [
     },
     {
         id: 'mokeb',
-        name: 'موکب‌های شهرداری',
+        name: 'موکب نما',
         description: 'لیست موقعیت موکب و اسکان‌های شهر سبزوار',
         icon: 'MapPin',
     },

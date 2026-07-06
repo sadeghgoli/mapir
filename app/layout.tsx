@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/app/contexts/AuthContext";
 import { LayerProvider } from "@/app/contexts/LayerContext";
 import { Suspense } from 'react';
+import VisitTracker from "@/app/components/VisitTracker";
 
 export const metadata: Metadata = {
     title: "پرداخت الکترونیک عوارض شهرداری سبزوار",
