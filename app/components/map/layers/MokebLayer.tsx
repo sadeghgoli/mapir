@@ -31,24 +31,18 @@ function makeIcon(color: string) {
     return divIcon({
         className: '',
         html: `<div style="
-            width: 45px; height: 45px;
-            border: 3px solid white;
+            width: 50px; height: 50px;
             border-radius: 50%;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
             overflow: hidden;
             display: flex; align-items: center; justify-content: center;
         ">
             <img 
-                src="/images/logo-bar.webp" 
+                src="/images/logo2.png" 
                 alt="موکب" 
                 style="width: 100%; height: 100%; object-fit: cover;"
             />
         </div>
-        <div style="
-            position: absolute; bottom: -2px; left: 50%; transform: translateX(-50%);
-            width: 10px; height: 10px; border-radius: 50%;
-            background: ${color}; border: 2px solid white;
-        "></div>`,
+       `,
         iconSize: [45, 45],
         iconAnchor: [22.5, 22.5],
     });
