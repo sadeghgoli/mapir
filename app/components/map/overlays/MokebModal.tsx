@@ -1,7 +1,7 @@
 'use client';
 
 import { X, User, Clock, Eye } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface MokebData {
     id: string;
@@ -39,19 +39,18 @@ export default function MokebModal({ isOpen, onClose, data }: MokebModalProps) {
         setIsMobile(/Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
     }, []);
 
-    const openMap = useCallback((url: string) => {
-        window.open(url, '_blank', 'noopener,noreferrer');
-    }, []);
-
     if (!isOpen || !data) return null;
 
     const lat = data.latitude;
     const lng = data.longitude;
 
-    const neshanMapUrl = `https://map.neshan.org/?t=0&c=${lat},${lng}&z=16`;
-    const showMapUrl = isMobile
-        ? `neshan://show?t=0&c=${lat},${lng}&z=16`
-        : `https://show.neshan.org/#/map?t=0&c=${lat},${lng}&z=16`;
+    const baladUrl = isMobile
+        ? `balad://map?latitude=${lat}&longitude=${lng}`
+        : `https://balad.ir/p?latitude=${lat}&longitude=${lng}`;
+
+    const neshanUrl = isMobile
+        ? `neshan://?lat=${lat}&lng=${lng}`
+        : `https://neshan.org/maps/@${lat},${lng},16z`;
 
     return (
         <div
@@ -91,20 +90,24 @@ export default function MokebModal({ isOpen, onClose, data }: MokebModalProps) {
                 </div>
 
                 <div className="flex gap-3 mt-5">
-                    <button
-                        onClick={() => openMap(neshanMapUrl)}
+                    <a
+                        href={baladUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-center text-white
-                            bg-[#28a745] hover:bg-[#218838] transition-colors"
+                            bg-[#28a745] hover:bg-[#218838] transition-colors no-underline inline-block"
                     >
                         مسیریابی در بلد
-                    </button>
-                    <button
-                        onClick={() => openMap(showMapUrl)}
+                    </a>
+                    <a
+                        href={neshanUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-center text-white
-                            bg-[#FF5722] hover:bg-[#e64a19] transition-colors"
+                            bg-[#FF5722] hover:bg-[#e64a19] transition-colors no-underline inline-block"
                     >
                         مسیریابی در نشان
-                    </button>
+                    </a>
                 </div>
             </div>
         </div>
