@@ -69,10 +69,27 @@ export default function MokebModal({ isOpen, onClose, data }: MokebModalProps) {
                         <span className="font-medium text-gray-800">دسته: </span>
                         <span className="text-gray-600">{data.categoryName}</span>
                     </div>
+                </div>
 
-               
-
-                 
+                <div className="flex gap-3 mt-5">
+                    <a
+                        href={`https://balad.ir/?lat=${data.latitude}&lng=${data.longitude}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-center
+                            bg-[#28a745] text-white hover:bg-[#218838] transition-colors"
+                    >
+                        مسیریابی در بلد
+                    </a>
+                    <a
+                        href={`https://neshan.org/maps/geo/@${data.latitude},${data.longitude},18z`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-center
+                            bg-[#FF5722] text-white hover:bg-[#e64a19] transition-colors"
+                    >
+                        مسیریابی در نشان
+                    </a>
                 </div>
             </div>
         </div>

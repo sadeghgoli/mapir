@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { Marker, Popup, useMap } from 'react-leaflet';
+import { Marker, useMap } from 'react-leaflet';
 import { divIcon } from 'leaflet';
 import { updateUrl, getUrlParams } from '@/app/utils/urlManager';
 import MokebModal from '../overlays/MokebModal';
@@ -47,6 +47,12 @@ function makeIcon(color: string) {
         iconAnchor: [22.5, 22.5],
     });
 }
+
+const popupContent = (item: ApiMokeb) => `
+    <div style="text-align:center;font-family:IRANSans,sans-serif;min-width:150px;direction:rtl">
+        <strong style="font-size:14px;color:#333">${item.title}</strong>
+        <p style="font-size:11px;margin:6px 0 0;color:#666">${item.description}</p>
+    </div>`;
 
 export default function MokebLayer() {
     const map = useMap();
@@ -99,26 +105,26 @@ export default function MokebLayer() {
                     key={item.id}
                     position={[item.latitude, item.longitude]}
                     icon={makeIcon(item.categoryColor || '#ff6600')}
-                    eventHandlers={{ click: () => openMokeb(item) }}
-                >
-                    <Popup>
-                        <div style={{ textAlign: 'center', fontFamily: 'IRANSans, sans-serif', minWidth: 150 }}>
-                            <strong style={{ fontSize: 14, color: '#333' }}>{item.title}</strong>
-                            <p style={{ fontSize: 11, margin: '6px 0 0', color: '#666' }}>{item.description}</p>
-                            <button
-                                onClick={() => openMokeb(item)}
-                                style={{
-                                    marginTop: 8, padding: '4px 16px',
-                                    background: '#2563eb', color: 'white',
-                                    border: 'none', borderRadius: 6,
-                                    fontSize: 12, cursor: 'pointer',
-                                }}
-                            >
-                                اطلاعات بیشتر
-                            </button>
-                        </div>
-                    </Popup>
-                </Marker>
+                    eventHandlers={{
+                        mouseover: (e) => {
+                            const marker = e.target;
+                            if (!marker._popup) {
+                                marker.bindPopup(popupContent(item), {
+                                    closeButton: false,
+                                    closeOnClick: false,
+                                    className: 'mokeb-popup',
+                                });
+                            }
+                            marker.openPopup();
+                        },
+                        mouseout: (e) => {
+                            e.target.closePopup();
+                        },
+                        click: () => {
+                            openMokeb(item);
+                        },
+                    }}
+                />
             ))}
 
             <MokebModal

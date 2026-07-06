@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>پنل آمار بازدید</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'IRANSans', Tahoma, sans-serif;
+            background: #f0f2f5;
+            color: #333;
+            padding: 20px;
+        }
+        .header {
+            background: linear-gradient(135deg, #1e3a5f, #2563eb);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .header h1 { font-size: 22px; font-weight: 700; }
+        .header .sub { font-size: 13px; opacity: .8; }
+        .header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+        .header-actions button {
+            padding: 8px 18px;
+            border: none;
+            border-radius: 10px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all .2s;
+            font-family: inherit;
+        }
+        .btn-refresh { background: rgba(255,255,255,.2); color: white; }
+        .btn-refresh:hover { background: rgba(255,255,255,.3); }
+        .btn-clear { background: #ef4444; color: white; }
+        .btn-clear:hover { background: #dc2626; }
+        .btn-export { background: #10b981; color: white; }
+        .btn-export:hover { background: #059669; }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 14px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 14px;
+            padding: 18px;
+            box-shadow: 0 2px 8px rgba(0,0,0,.06);
+            text-align: center;
+        }
+        .stat-card .num {
+            font-size: 32px;
+            font-weight: 800;
+            color: #2563eb;
+        }
+        .stat-card .label {
+            font-size: 13px;
+            color: #888;
+            margin-top: 4px;
+        }
+        .section-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: #1e3a5f;
+        }
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .chart-card {
+            background: white;
+            border-radius: 14px;
+            padding: 18px;
+            box-shadow: 0 2px 8px rgba(0,0,0,.06);
+        }
+        .chart-card h3 {
+            font-size: 14px;
+            color: #555;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #f0f2f5;
+        }
+        .bar-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        .bar-item .key {
+            min-width: 80px;
+            font-size: 12px;
+            color: #555;
+            text-align: left;
+        }
+        .bar-track {
+            flex: 1;
+            height: 22px;
+            background: #f0f2f5;
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+        }
+        .bar-fill {
+            height: 100%;
+            border-radius: 6px;
+            background: linear-gradient(90deg, #2563eb, #3b82f6);
+            transition: width .4s;
+            display: flex;
+            align-items: center;
+            padding-right: 8px;
+            font-size: 11px;
+            color: white;
+            font-weight: 600;
+        }
+        .bar-item .count {
+            min-width: 40px;
+            font-size: 12px;
+            color: #888;
+            text-align: right;
+        }
+        .filter-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .filter-bar input, .filter-bar select {
+            padding: 8px 14px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            font-size: 13px;
+            font-family: inherit;
+            background: white;
+        }
+        .filter-bar input:focus, .filter-bar select:focus {
+            outline: none;
+            border-color: #2563eb;
+        }
+        .table-wrap {
+            background: white;
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,.06);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        th {
+            background: #f8f9fb;
+            text-align: right;
+            padding: 12px 14px;
+            font-weight: 600;
+            color: #555;
+            white-space: nowrap;
+            cursor: pointer;
+            user-select: none;
+        }
+        th:hover { background: #f0f2f5; }
+        td {
+            padding: 10px 14px;
+            border-top: 1px solid #f0f2f5;
+            color: #666;
+        }
+        tr:hover td { background: #f8faff; }
+        .badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-source { background: #dbeafe; color: #1d4ed8; }
+        .badge-medium { background: #d1fae5; color: #059669; }
+        .badge-campaign { background: #fef3c7; color: #d97706; }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            padding: 16px;
+        }
+        .pagination button {
+            padding: 6px 14px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            font-size: 12px;
+            font-family: inherit;
+        }
+        .pagination button.active {
+            background: #2563eb;
+            color: white;
+            border-color: #2563eb;
+        }
+        .pagination button:hover:not(.active) { background: #f0f2f5; }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #aaa;
+        }
+        .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+        .empty-state p { font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div>
+        <h1>📊 پنل آمار بازدید</h1>
+        <div class="sub">مدیریت و تحلیل بازدیدهای سایت با پارامترهای UTM</div>
+    </div>
+    <div class="header-actions">
+        <button class="btn-refresh" onclick="render()">🔄 بروزرسانی</button>
+        <button class="btn-export" onclick="exportCSV()">📥 خروجی CSV</button>
+        <button class="btn-clear" onclick="clearData()">🗑 پاک کردن همه</button>
+    </div>
+</div>
+
+<div class="stats-grid" id="statsGrid"></div>
+
+<div class="charts-grid" id="chartsGrid"></div>
+
+<div class="section-title">📋 جزئیات بازدیدها</div>
+<div class="filter-bar">
+    <input type="text" id="filterSource" placeholder="فیلتر منبع..." oninput="render()">
+    <input type="text" id="filterCampaign" placeholder="فیلتر کمپین..." oninput="render()">
+    <select id="filterMedium" onchange="render()">
+        <option value="">همه مدیوم‌ها</option>
+        <option value="qr_code">QR Code</option>
+        <option value="banner">بنر</option>
+        <option value="social">شبکه اجتماعی</option>
+        <option value="email">ایمیل</option>
+        <option value="sms"> SMS</option>
+        <option value="direct">مستقیم</option>
+        <option value="other">سایر</option>
+    </select>
+    <select id="filterDevice" onchange="render()">
+        <option value="">همه دستگاه‌ها</option>
+        <option value="موبایل">موبایل</option>
+        <option value="کامپیوتر">کامپیوتر</option>
+        <option value="تبلت">تبلت</option>
+    </select>
+</div>
+
+<div class="table-wrap" id="tableWrap"></div>
+
+<script>
+const STORAGE_KEY = 'site_visits';
+const PAGE_SIZE = 15;
+
+function getVisits() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+    catch { return []; }
+}
+
+function getFiltered() {
+    const all = getVisits();
+    const src = document.getElementById('filterSource').value.trim().toLowerCase();
+    const cmp = document.getElementById('filterCampaign').value.trim().toLowerCase();
+    const med = document.getElementById('filterMedium').value;
+    const dev = document.getElementById('filterDevice').value;
+    return all.filter(v => {
+        if (src && !(v.source || '').toLowerCase().includes(src) && !(v.campaign || '').toLowerCase().includes(src)) return false;
+        if (cmp && !(v.campaign || '').toLowerCase().includes(cmp)) return false;
+        if (med && v.medium !== med) return false;
+        if (dev && v.device !== dev) return false;
+        return true;
+    });
+}
+
+function render() {
+    const all = getVisits();
+    const filtered = getFiltered();
+
+    // Stats
+    const uniqueSources = [...new Set(all.map(v => v.source).filter(Boolean))].length;
+    const uniqueCampaigns = [...new Set(all.map(v => v.campaign).filter(Boolean))].length;
+    document.getElementById('statsGrid').innerHTML = `
+        <div class="stat-card"><div class="num">${all.length}</div><div class="label">کل بازدید</div></div>
+        <div class="stat-card"><div class="num">${filtered.length}</div><div class="label">بازدید فیلتر شده</div></div>
+        <div class="stat-card"><div class="num">${uniqueSources}</div><div class="label">منبع‌های مختلف</div></div>
+        <div class="stat-card"><div class="num">${uniqueCampaigns}</div><div class="label">کمپین‌های مختلف</div></div>
+        <div class="stat-card"><div class="num">${all.filter(v => v.device === 'موبایل').length}</div><div class="label">موبایل</div></div>
+        <div class="stat-card"><div class="num">${all.filter(v => v.device === 'کامپیوتر').length}</div><div class="label">کامپیوتر</div></div>
+    `;
+
+    // Charts
+    renderChart('source', 'منبع (utm_source)', filtered);
+    renderChart('medium', 'مدیوم (utm_medium)', filtered);
+    renderChart('campaign', 'کمپین (utm_campaign)', filtered);
+    renderChart('device', 'نوع دستگاه', filtered);
+
+    // Table
+    renderTable(filtered);
+}
+
+function renderChart(field, title, data) {
+    const map = {};
+    data.forEach(v => {
+        const key = v[field] || '(ندارد)';
+        map[key] = (map[key] || 0) + 1;
+    });
+    const entries = Object.entries(map).sort((a, b) => b[1] - a[1]);
+    const max = entries.length > 0 ? entries[0][1] : 1;
+    const colors = ['#2563eb','#3b82f6','#60a5fa','#93c5fd','#bfdbfe','#dbeafe'];
+
+    // Find or create container
+    let container = document.querySelector(`#chart-${field}`);
+    if (!container) {
+        const grid = document.getElementById('chartsGrid');
+        const card = document.createElement('div');
+        card.className = 'chart-card';
+        card.innerHTML = `<h3>${title}</h3><div id="chart-${field}"></div>`;
+        grid.appendChild(card);
+        container = card.querySelector(`#chart-${field}`);
+    }
+    container.innerHTML = entries.map(([k, c], i) => `
+        <div class="bar-item">
+            <span class="key">${k}</span>
+            <div class="bar-track">
+                <div class="bar-fill" style="width:${(c/max*100).toFixed(1)}%;background:${colors[i%colors.length]}">${c}</div>
+            </div>
+            <span class="count">${c}</span>
+        </div>
+    `).join('');
+}
+
+function renderTable(data) {
+    let page = 1;
+    const totalPages = Math.ceil(data.length / PAGE_SIZE);
+
+    function showPage(p) {
+        page = Math.max(1, Math.min(p, totalPages));
+        const start = (page - 1) * PAGE_SIZE;
+        const end = start + PAGE_SIZE;
+        const pageData = data.slice(start, end);
+
+        const rows = pageData.map(v => `
+            <tr>
+                <td>${v.date || ''} ${v.time || ''}</td>
+                <td>${v.source ? `<span class="badge badge-source">${v.source}</span>` : '—'}</td>
+                <td>${v.medium ? `<span class="badge badge-medium">${v.medium}</span>` : '—'}</td>
+                <td>${v.campaign ? `<span class="badge badge-campaign">${v.campaign}</span>` : '—'}</td>
+                <td>${v.device || '—'}</td>
+                <td>${v.browser || '—'}</td>
+                <td style="font-size:11px;color:#999;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${v.referrer || ''}">${v.referrer || '—'}</td>
+            </tr>
+        `).join('');
+
+        const pagination = totalPages > 1 ? `
+            <div class="pagination">
+                <button onclick="renderTablePage(${page - 1})" ${page <= 1 ? 'disabled style="opacity:.4"' : ''}>‹ قبلی</button>
+                ${Array.from({length: totalPages}, (_, i) => i + 1).map(p =>
+                    `<button class="${p === page ? 'active' : ''}" onclick="renderTablePage(${p})">${p}</button>`
+                ).join('')}
+                <button onclick="renderTablePage(${page + 1})" ${page >= totalPages ? 'disabled style="opacity:.4"' : ''}>بعدی ›</button>
+            </div>
+        ` : '';
+
+        document.getElementById('tableWrap').innerHTML = data.length === 0
+            ? `<div class="empty-state"><div class="icon">📭</div><p>هیچ بازدیدی ثبت نشده است</p><p style="font-size:12px;margin-top:6px">برای ثبت بازدید، کاربر باید از طریق لینک‌های دارای پارامتر UTM وارد سایت شود</p></div>`
+            : `
+            <table>
+                <thead><tr>
+                    <th onclick="sortTable('date')">⏱ زمان</th>
+                    <th onclick="sortTable('source')">📌 منبع</th>
+                    <th onclick="sortTable('medium')">📡 مدیوم</th>
+                    <th onclick="sortTable('campaign')">🏷 کمپین</th>
+                    <th onclick="sortTable('device')">📱 دستگاه</th>
+                    <th onclick="sortTable('browser')">🌐 مرورگر</th>
+                    <th>🔗 ارجاع‌دهنده</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+            </table>
+            ${pagination}
+        `;
+    }
+
+    window.renderTablePage = showPage;
+    window._tableData = data;
+    showPage(1);
+}
+
+function sortTable(field) {
+    const data = window._tableData || [];
+    if (!data.length) return;
+    const key = field === 'date' ? 'timestamp' : field;
+    data.sort((a, b) => {
+        if (key === 'timestamp') return new Date(b[key]) - new Date(a[key]);
+        return ((a[key] || '') + '').localeCompare((b[key] || '') + '');
+    });
+    renderTable(data);
+}
+
+function clearData() {
+    if (!confirm('همه بازدیدها پاک شود؟')) return;
+    localStorage.removeItem(STORAGE_KEY);
+    render();
+}
+
+function exportCSV() {
+    const all = getVisits();
+    if (!all.length) return alert('داده‌ای برای خروجی وجود ندارد');
+    const headers = ['تاریخ', 'ساعت', 'منبع', 'مدیوم', 'کمپین', 'دستگاه', 'مرورگر', 'سیستم‌عامل', 'ارجاع‌دهنده', 'URL'];
+    const rows = all.map(v => [
+        v.date, v.time, v.source || '', v.medium || '', v.campaign || '',
+        v.device || '', v.browser || '', v.os || '', v.referrer || '', v.pageUrl || ''
+    ].map(c => `"${c.replace(/"/g, '""')}"`).join(','));
+    const csv = '\uFEFF' + headers.join(',') + '\n' + rows.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `site-visits-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+}
+
+render();
+</script>
+</body>
+</html>
