@@ -27,9 +27,9 @@ export default function RootLayout({
         <html lang="fa" dir={"rtl"}>
         <body className={`antialiased`}>
         <Suspense fallback={<div>در حال بارگذاری احراز هویت...</div>}>
-
         <AuthProvider>
             <LayerProvider>
+                <VisitTracker />
                 {children}
             </LayerProvider>
         </AuthProvider>
