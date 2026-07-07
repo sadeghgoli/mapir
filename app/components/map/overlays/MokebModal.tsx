@@ -200,27 +200,7 @@ export default function MokebModal({ isOpen, onClose, data }: MokebModalProps) {
                     )}
                 </div>
 
-                <div className="flex gap-3 mt-5">
-                    <a
-                        href={baladUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-center text-white
-                            bg-[#28a745] hover:bg-[#218838] transition-colors no-underline inline-block"
-                            style={{color: 'white'}}
-
-                    >
-                        مسیریابی در بلد
-                    </a>
-                    <button
-                        onClick={handleOpenNeshan}
-                        disabled={routingLoad}
-                        className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-center text-white
-                            bg-[#FF5722] hover:bg-[#e64a19] transition-colors disabled:opacity-50"
-                    >
-                        {routingLoad ? 'در حال دریافت موقعیت...' : 'مسیریابی در نشان'}
-                    </button>
-                </div>
+                
             </div>
         </div>
     );
