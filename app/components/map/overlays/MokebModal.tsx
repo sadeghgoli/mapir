@@ -100,7 +100,7 @@ export default function MokebModal({ isOpen, onClose, data }: MokebModalProps) {
     const lng = data.longitude;
 
     const baladUrl = `https://balad.ir/#16/${lat}/${lng}`;
-    const neshanUrl = `https://neshan.org/maps#c${lat}-${lng}-16z-0p`;
+    const neshanUrl = `https://neshan.org/maps#c${lat.toFixed(3)}-${lng.toFixed(3)}-16z-0p`;
 
     return (
         <div
