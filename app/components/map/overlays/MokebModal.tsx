@@ -1,6 +1,6 @@
 'use client';
 
-import { X, Pencil, Check } from 'lucide-react';
+import { X, Pencil, Check, Navigation } from 'lucide-react';
 import { useEffect, useState, useRef } from 'react';
 
 interface MokebData {
@@ -20,10 +20,10 @@ interface MokebModalProps {
     isOpen: boolean;
     onClose: () => void;
     data: MokebData | null;
+    onRoute?: (lat: number, lng: number) => void;
 }
 
-export default function MokebModal({ isOpen, onClose, data }: MokebModalProps) {
-    const [isMobile, setIsMobile] = useState(false);
+export default function MokebModal({ isOpen, onClose, data, onRoute }: MokebModalProps) {
     const [edits, setEdits] = useState<Record<string, string>>({});
     const [isEditing, setIsEditing] = useState(false);
     const [editText, setEditText] = useState('');
@@ -31,10 +31,8 @@ export default function MokebModal({ isOpen, onClose, data }: MokebModalProps) {
     const [editMode, setEditMode] = useState(false);
     const editToken = useRef<string | null>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-    useEffect(() => {
-        setIsMobile(/Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
-    }, []);
+    const [gettingLocation, setGettingLocation] = useState(false);
+    const [locationError, setLocationError] = useState<string | null>(null);
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -49,6 +47,7 @@ export default function MokebModal({ isOpen, onClose, data }: MokebModalProps) {
     useEffect(() => {
         if (!isOpen) {
             setIsEditing(false);
+            setLocationError(null);
             return;
         }
         setIsEditing(false);
@@ -97,6 +96,24 @@ export default function MokebModal({ isOpen, onClose, data }: MokebModalProps) {
         } finally {
             setSaving(false);
         }
+    };
+
+    const handleRouting = () => {
+        setGettingLocation(true);
+        setLocationError(null);
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                setGettingLocation(false);
+                if (onRoute) onRoute(pos.coords.latitude, pos.coords.longitude);
+                onClose();
+            },
+            (err) => {
+                console.error('Geolocation error:', err);
+                setLocationError('دسترسی به موقعیت مکانی مجاز نیست. لطفاً دسترسی GPS را در مرورگر خود فعال کنید.');
+                setGettingLocation(false);
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
     };
 
     if (!isOpen || !data) return null;
@@ -191,9 +208,8 @@ export default function MokebModal({ isOpen, onClose, data }: MokebModalProps) {
                         rel="noopener noreferrer"
                         className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-center text-white
                             bg-[#28a745] hover:bg-[#218838] transition-colors no-underline inline-block"
-                            style={{color: 'white'}}
                     >
-                        مسیریابی در بلد
+                        نمایش در بلد
                     </a>
                     <a
                         href={neshanUrl}
@@ -201,11 +217,26 @@ export default function MokebModal({ isOpen, onClose, data }: MokebModalProps) {
                         rel="noopener noreferrer"
                         className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-center text-white
                             bg-[#FF5722] hover:bg-[#e64a19] transition-colors no-underline inline-block"
-                            style={{color: 'white'}}
-
                     >
-                        مسیریابی در نشان
+                        نمایش در نشان
                     </a>
+                </div>
+
+                <div className="mt-3">
+                    <button
+                        onClick={handleRouting}
+                        disabled={gettingLocation}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium
+                            bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition-colors disabled:opacity-50"
+                    >
+                        <Navigation size={16} />
+                        {gettingLocation
+                            ? 'در حال دریافت موقعیت...'
+                            : 'مسیریابی از موقعیت فعلی من'}
+                    </button>
+                    {locationError && (
+                        <p className="text-red-500 text-xs mt-2 text-center">{locationError}</p>
+                    )}
                 </div>
             </div>
         </div>
