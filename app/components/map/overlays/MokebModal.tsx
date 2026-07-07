@@ -1,7 +1,7 @@
 'use client';
 
-import { X, User, Clock, Eye } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { X, Pencil, Check } from 'lucide-react';
+import { useEffect, useState, useRef } from 'react';
 
 interface MokebData {
     id: string;
@@ -22,35 +22,90 @@ interface MokebModalProps {
     data: MokebData | null;
 }
 
-function formatDate(dateStr?: string) {
-    if (!dateStr) return '';
-    try {
-        const d = new Date(dateStr);
-        return d.toLocaleDateString('fa-IR', { year: 'numeric', month: 'long', day: 'numeric' });
-    } catch {
-        return dateStr;
-    }
-}
-
 export default function MokebModal({ isOpen, onClose, data }: MokebModalProps) {
     const [isMobile, setIsMobile] = useState(false);
+    const [edits, setEdits] = useState<Record<string, string>>({});
+    const [isEditing, setIsEditing] = useState(false);
+    const [editText, setEditText] = useState('');
+    const [saving, setSaving] = useState(false);
+    const [editMode, setEditMode] = useState(false);
+    const editToken = useRef<string | null>(null);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     useEffect(() => {
         setIsMobile(/Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
     }, []);
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const mode = params.get('mode');
+        const token = params.get('edit_token');
+        if (mode === 'edit' && token) {
+            setEditMode(true);
+            editToken.current = token;
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!isOpen) {
+            setIsEditing(false);
+            return;
+        }
+        setIsEditing(false);
+        fetch('/api/mokeb-edits')
+            .then(res => res.json())
+            .then((data: Record<string, { id: string; description: string }>) => {
+                const map: Record<string, string> = {};
+                for (const key of Object.keys(data)) {
+                    map[key] = data[key].description;
+                }
+                setEdits(map);
+            })
+            .catch(() => {});
+    }, [isOpen]);
+
+    const displayDescription = data && edits[data.id] ? edits[data.id] : data?.description || '';
+
+    const handleStartEdit = () => {
+        setEditText(displayDescription);
+        setIsEditing(true);
+        setTimeout(() => textareaRef.current?.focus(), 100);
+    };
+
+    const handleSave = async () => {
+        if (!data) return;
+        setSaving(true);
+        try {
+            const res = await fetch('/api/mokeb-edits', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: data.id,
+                    description: editText,
+                    edit_token: editToken.current,
+                }),
+            });
+            const result = await res.json();
+            if (result.success) {
+                setEdits(prev => ({ ...prev, [data.id]: editText }));
+                setIsEditing(false);
+            } else {
+                alert('خطا در ذخیره: ' + (result.error || ''));
+            }
+        } catch {
+            alert('خطا در ارتباط با سرور');
+        } finally {
+            setSaving(false);
+        }
+    };
 
     if (!isOpen || !data) return null;
 
     const lat = data.latitude;
     const lng = data.longitude;
 
-    const baladUrl = isMobile
-        ? `balad://map?latitude=${lat}&longitude=${lng}`
-        : `https://balad.ir/p?latitude=${lat}&longitude=${lng}`;
-
-    const neshanUrl = isMobile
-        ? `neshan://?lat=${lat}&lng=${lng}`
-        : `https://neshan.org/maps/@${lat},${lng},16z`;
+    const baladUrl = `https://balad.ir/#16/${lat}/${lng}`;
+    const neshanUrl = `https://neshan.org/maps#c${lat}-${lng}-16z-0p`;
 
     return (
         <div
@@ -81,12 +136,52 @@ export default function MokebModal({ isOpen, onClose, data }: MokebModalProps) {
                 </div>
 
                 <div className="space-y-3 text-sm text-gray-600">
-                    <p className="text-gray-700 leading-relaxed">{data.description}</p>
+                    {isEditing ? (
+                        <div>
+                            <textarea
+                                ref={textareaRef}
+                                value={editText}
+                                onChange={(e) => setEditText(e.target.value)}
+                                className="w-full border border-gray-300 rounded-xl p-3 text-sm text-gray-700 resize-none focus:outline-none focus:border-blue-400 transition-colors"
+                                rows={4}
+                            />
+                            <div className="flex gap-2 mt-2">
+                                <button
+                                    onClick={handleSave}
+                                    disabled={saving}
+                                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                                >
+                                    <Check size={16} />
+                                    {saving ? 'در حال ذخیره...' : 'ذخیره'}
+                                </button>
+                                <button
+                                    onClick={() => setIsEditing(false)}
+                                    className="px-4 py-2 rounded-xl text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                                >
+                                    انصراف
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <>
+                            <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{displayDescription}</p>
 
-                    <div>
-                        <span className="font-medium text-gray-800">دسته: </span>
-                        <span className="text-gray-600">{data.categoryName}</span>
-                    </div>
+                            <div>
+                                <span className="font-medium text-gray-800">دسته: </span>
+                                <span className="text-gray-600">{data.categoryName}</span>
+                            </div>
+
+                            {editMode && (
+                                <button
+                                    onClick={handleStartEdit}
+                                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors border border-amber-200"
+                                >
+                                    <Pencil size={15} />
+                                    ویرایش
+                                </button>
+                            )}
+                        </>
+                    )}
                 </div>
 
                 <div className="flex gap-3 mt-5">
@@ -96,6 +191,7 @@ export default function MokebModal({ isOpen, onClose, data }: MokebModalProps) {
                         rel="noopener noreferrer"
                         className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-center text-white
                             bg-[#28a745] hover:bg-[#218838] transition-colors no-underline inline-block"
+                            style={{color: 'white'}}
                     >
                         مسیریابی در بلد
                     </a>
@@ -105,6 +201,8 @@ export default function MokebModal({ isOpen, onClose, data }: MokebModalProps) {
                         rel="noopener noreferrer"
                         className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-center text-white
                             bg-[#FF5722] hover:bg-[#e64a19] transition-colors no-underline inline-block"
+                            style={{color: 'white'}}
+
                     >
                         مسیریابی در نشان
                     </a>

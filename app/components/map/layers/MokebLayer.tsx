@@ -28,8 +28,8 @@ interface ApiResponse {
 }
 
 const iconMap: Record<string, string> = {
-    eskan: '/images/logo2.png',
-    mokeb: '/images/logo1.png',
+    eskan: '/images/logo1.png',
+    mokeb: '/images/logo2.png',
 };
 
 function makeIcon(categoryIcon: string) {
