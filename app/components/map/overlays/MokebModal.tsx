@@ -30,6 +30,28 @@ export default function MokebModal({ isOpen, onClose, data }: MokebModalProps) {
     const [editMode, setEditMode] = useState(false);
     const editToken = useRef<string | null>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const [routingLoad, setRoutingLoad] = useState(false);
+
+    const handleOpenNeshan = () => {
+        const destUrl = `https://neshan.org/maps#c${data!.latitude.toFixed(3)}-${data!.longitude.toFixed(3)}-16z-0p`;
+        if (!navigator.geolocation) {
+            window.open(destUrl, '_blank');
+            return;
+        }
+        setRoutingLoad(true);
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                setRoutingLoad(false);
+                const url = `https://neshan.org/maps/routing/car/origin/${pos.coords.latitude},${pos.coords.longitude}/destination/${data!.latitude},${data!.longitude}#c${data!.latitude.toFixed(3)}-${data!.longitude.toFixed(3)}-15z-0p`;
+                window.open(url, '_blank');
+            },
+            () => {
+                setRoutingLoad(false);
+                window.open(destUrl, '_blank');
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    };
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -100,7 +122,6 @@ export default function MokebModal({ isOpen, onClose, data }: MokebModalProps) {
     const lng = data.longitude;
 
     const baladUrl = `https://balad.ir/#16/${lat}/${lng}`;
-    const neshanUrl = `https://neshan.org/maps#c${lat.toFixed(3)}-${lng.toFixed(3)}-16z-0p`;
 
     return (
         <div
@@ -191,16 +212,14 @@ export default function MokebModal({ isOpen, onClose, data }: MokebModalProps) {
                     >
                         مسیریابی در بلد
                     </a>
-                    <a
-                        href={neshanUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                    <button
+                        onClick={handleOpenNeshan}
+                        disabled={routingLoad}
                         className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-center text-white
-                            bg-[#FF5722] hover:bg-[#e64a19] transition-colors no-underline inline-block"
-                            style={{color: 'white'}}
+                            bg-[#FF5722] hover:bg-[#e64a19] transition-colors disabled:opacity-50"
                     >
-                        مسیریابی در نشان
-                    </a>
+                        {routingLoad ? 'در حال دریافت موقعیت...' : 'مسیریابی در نشان'}
+                    </button>
                 </div>
             </div>
         </div>
