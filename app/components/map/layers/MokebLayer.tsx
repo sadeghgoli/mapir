@@ -51,7 +51,7 @@ function makeIcon(categoryIcon: string) {
         </div>
        `,
         iconSize: [45, 45],
-        iconAnchor: [22.5, 45],
+        iconAnchor: [22.5, 22.5],
     });
 }
 
