@@ -32,27 +32,6 @@ export default function MokebModal({ isOpen, onClose, data }: MokebModalProps) {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [routingLoad, setRoutingLoad] = useState(false);
 
-    const handleOpenNeshan = () => {
-        const destUrl = `https://neshan.org/maps#c${data!.latitude.toFixed(3)}-${data!.longitude.toFixed(3)}-16z-0p`;
-        if (!navigator.geolocation) {
-            window.open(destUrl, '_blank');
-            return;
-        }
-        setRoutingLoad(true);
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                setRoutingLoad(false);
-                const url = `https://neshan.org/maps/routing/car/origin/${pos.coords.latitude},${pos.coords.longitude}/destination/${data!.latitude},${data!.longitude}#c${data!.latitude.toFixed(3)}-${data!.longitude.toFixed(3)}-15z-0p`;
-                window.open(url, '_blank');
-            },
-            () => {
-                setRoutingLoad(false);
-                window.open(destUrl, '_blank');
-            },
-            { enableHighAccuracy: true, timeout: 10000 }
-        );
-    };
-
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         const mode = params.get('mode');
@@ -80,6 +59,33 @@ export default function MokebModal({ isOpen, onClose, data }: MokebModalProps) {
             })
             .catch(() => {});
     }, [isOpen]);
+
+    const handleOpenNeshan = () => {
+        if (!data) return;
+        const dest = `${data.latitude},${data.longitude}`;
+        const center = `${data.latitude.toFixed(3)}-${data.longitude.toFixed(3)}`;
+        const fallbackUrl = `https://neshan.org/maps#c${center}-16z-0p`;
+
+        if (!navigator.geolocation) {
+            window.open(fallbackUrl, '_blank');
+            return;
+        }
+
+        setRoutingLoad(true);
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                setRoutingLoad(false);
+                const origin = `${pos.coords.latitude},${pos.coords.longitude}`;
+                const url = `https://neshan.org/maps/routing/car/origin/${origin}/destination/${dest}#c${center}-15z-0p`;
+                window.open(url, '_blank');
+            },
+            () => {
+                setRoutingLoad(false);
+                window.open(fallbackUrl, '_blank');
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    };
 
     const displayDescription = data && edits[data.id] ? edits[data.id] : data?.description || '';
 
@@ -117,11 +123,6 @@ export default function MokebModal({ isOpen, onClose, data }: MokebModalProps) {
     };
 
     if (!isOpen || !data) return null;
-
-    const lat = data.latitude;
-    const lng = data.longitude;
-
-    const baladUrl = `https://balad.ir/#16/${lat}/${lng}`;
 
     return (
         <div
@@ -200,7 +201,16 @@ export default function MokebModal({ isOpen, onClose, data }: MokebModalProps) {
                     )}
                 </div>
 
-                
+                <div className="mt-5">
+                    <button
+                        onClick={handleOpenNeshan}
+                        disabled={routingLoad}
+                        className="w-full px-4 py-2.5 rounded-xl text-sm font-medium text-center text-white
+                            bg-[#FF5722] hover:bg-[#e64a19] transition-colors disabled:opacity-50"
+                    >
+                        {routingLoad ? 'در حال دریافت موقعیت...' : 'مسیریابی در نشان'}
+                    </button>
+                </div>
             </div>
         </div>
     );
