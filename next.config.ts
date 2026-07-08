@@ -32,6 +32,10 @@ const nextConfig: NextConfig = {
                 source: '/api/map-point/:path*',
                 destination: 'http://apiweb-locationsmap.sabzevar.ir:5020/:path*',
             },
+            {
+                source: '/api/osrm/:path*',
+                destination: `${process.env.OSRM_BASE_URL || 'https://route.runflare.run'}/api/:path*`,
+            },
         ];
     },
 };

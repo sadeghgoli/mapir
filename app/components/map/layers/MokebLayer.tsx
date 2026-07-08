@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { Marker, useMap } from 'react-leaflet';
 import { divIcon } from 'leaflet';
 import { updateUrl, getUrlParams } from '@/app/utils/urlManager';
 import MokebModal from '../overlays/MokebModal';
+import RouteLayer from '../routing/RouteLayer';
+import type { RouteData } from '../routing/RouteLayer';
 
 interface ApiMokeb {
     id: string;
@@ -64,6 +66,7 @@ export default function MokebLayer() {
     const [points, setPoints] = useState<ApiMokeb[]>([]);
     const [selected, setSelected] = useState<ApiMokeb | null>(null);
     const [loading, setLoading] = useState(true);
+    const [routeData, setRouteData] = useState<RouteData | null>(null);
     const initDone = useRef(false);
 
     const urlMokebId = typeof window !== 'undefined'
@@ -72,6 +75,7 @@ export default function MokebLayer() {
 
     const openMokeb = (item: ApiMokeb) => {
         setSelected(item);
+        setRouteData(null);
         updateUrl({ mokebId: item.id });
         map.setView([item.latitude, item.longitude], 18, { animate: true, duration: 1 });
     };
@@ -80,6 +84,20 @@ export default function MokebLayer() {
         setSelected(null);
         updateUrl({ mokebId: null });
     };
+
+    const handleShowRoute = useCallback((originLat: number, originLng: number) => {
+        if (!selected) return;
+        setRouteData({
+            origin: [originLat, originLng],
+            destination: [selected.latitude, selected.longitude],
+            destinationName: selected.title,
+        });
+        setSelected(null);
+    }, [selected]);
+
+    const handleClearRoute = useCallback(() => {
+        setRouteData(null);
+    }, []);
 
     useEffect(() => {
         fetch('/api/map-point/api/MapPoint?page=1&pageSize=50')
@@ -136,7 +154,12 @@ export default function MokebLayer() {
                 isOpen={!!selected}
                 onClose={handleCloseModal}
                 data={selected}
+                onShowRoute={handleShowRoute}
             />
+
+            {routeData && (
+                <RouteLayer route={routeData} onClear={handleClearRoute} />
+            )}
         </>
     );
 }

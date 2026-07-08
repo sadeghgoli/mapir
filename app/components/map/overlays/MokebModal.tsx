@@ -20,9 +20,10 @@ interface MokebModalProps {
     isOpen: boolean;
     onClose: () => void;
     data: MokebData | null;
+    onShowRoute?: (originLat: number, originLng: number) => void;
 }
 
-export default function MokebModal({ isOpen, onClose, data }: MokebModalProps) {
+export default function MokebModal({ isOpen, onClose, data, onShowRoute }: MokebModalProps) {
     const [edits, setEdits] = useState<Record<string, string>>({});
     const [isEditing, setIsEditing] = useState(false);
     const [editText, setEditText] = useState('');
@@ -31,6 +32,7 @@ export default function MokebModal({ isOpen, onClose, data }: MokebModalProps) {
     const editToken = useRef<string | null>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [routingLoad, setRoutingLoad] = useState(false);
+    const [mapRoutingLoad, setMapRoutingLoad] = useState(false);
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -82,6 +84,29 @@ export default function MokebModal({ isOpen, onClose, data }: MokebModalProps) {
             () => {
                 setRoutingLoad(false);
                 window.open(fallbackUrl, '_blank');
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    };
+
+    const handleRouteOnMap = () => {
+        if (!data) return;
+
+        if (!navigator.geolocation) {
+            alert('مرورگر شما از موقعیت‌یابی پشتیبانی نمی‌کند');
+            return;
+        }
+
+        setMapRoutingLoad(true);
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                setMapRoutingLoad(false);
+                onShowRoute?.(pos.coords.latitude, pos.coords.longitude);
+                onClose();
+            },
+            () => {
+                setMapRoutingLoad(false);
+                alert('امکان دریافت موقعیت شما وجود ندارد');
             },
             { enableHighAccuracy: true, timeout: 10000 }
         );
@@ -201,14 +226,22 @@ export default function MokebModal({ isOpen, onClose, data }: MokebModalProps) {
                     )}
                 </div>
 
-                <div className="mt-5">
+                <div className="mt-5 flex gap-2">
                     <button
                         onClick={handleOpenNeshan}
                         disabled={routingLoad}
-                        className="w-full px-4 py-2.5 rounded-xl text-sm font-medium text-center text-white
+                        className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-center text-white
                             bg-[#FF5722] hover:bg-[#e64a19] transition-colors disabled:opacity-50"
                     >
                         {routingLoad ? 'در حال دریافت موقعیت...' : 'مسیریابی در نشان'}
+                    </button>
+                    <button
+                        onClick={handleRouteOnMap}
+                        disabled={mapRoutingLoad}
+                        className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-center text-white
+                            bg-blue-600 hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    >
+                        {mapRoutingLoad ? 'در حال دریافت موقعیت...' : 'مسیریابی روی نقشه'}
                     </button>
                 </div>
             </div>
