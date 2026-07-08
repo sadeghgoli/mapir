@@ -37,7 +37,7 @@ function makeIcon(categoryIcon: string) {
     return divIcon({
         className: '',
         html: `<div style="
-            width: 50px; 
+            width: 45px; 
             overflow: hidden;
             display: flex; align-items: center; justify-content: center;
         ">
@@ -49,7 +49,7 @@ function makeIcon(categoryIcon: string) {
         </div>
        `,
         iconSize: [45, 45],
-        iconAnchor: [22.5, 22.5],
+        iconAnchor: [22.5, 45],
     });
 }
 
