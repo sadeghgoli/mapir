@@ -17,12 +17,12 @@ export const AVAILABLE_LAYERS: LayerConfig[] = [
         description: 'مشاهده و پرداخت عوارض نوسازی و پسماند',
         icon: 'CreditCard',
     },
-    {
-        id: 'kooche',
-        name: 'کوچه‌ها',
-        description: 'نمایش کوچه‌ها و معابر (داده تستی)',
-        icon: 'Route',
-    },
+    // {
+    //     id: 'kooche',
+    //     name: 'کوچه‌ها',
+    //     description: 'نمایش کوچه‌ها و معابر (داده تستی)',
+    //     icon: 'Route',
+    // },
     {
         id: 'mokeb',
         name: 'موکب نما',
