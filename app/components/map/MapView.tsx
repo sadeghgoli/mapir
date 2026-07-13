@@ -15,6 +15,7 @@ const MapContainer = dynamic(
 import BaseTileLayer from './layers/BaseTileLayer';
 import NosaziLayer from './layers/NosaziLayer';
 import ZoomControls from './overlays/ZoomControls';
+import MapLegend from './overlays/MapLegend';
 
 const KoocheLayer = dynamic(() => import('./layers/KoocheLayer'), { ssr: false });
 const MokebLayer = dynamic(() => import('./layers/MokebLayer'), { ssr: false });
@@ -74,6 +75,8 @@ function MapComponent() {
                 <PositionMarker />
                 <ZoomControls />
             </MapContainer>
+
+            <MapLegend />
 
             {isLoadingNosazi && (
                 <div className="absolute inset-0 flex items-center justify-center z-[2000] bg-black/20 backdrop-blur-sm pointer-events-none">
