@@ -37,8 +37,13 @@ function readUrlCoords(): { lat: number; lng: number; zoom: number } {
 function MapComponent() {
     const [isMounted, setIsMounted] = useState(false);
     const [isLoadingNosazi, setIsLoadingNosazi] = useState(false);
-    const { activeLayers } = useLayer();
+    const { activeLayers, availableLayers } = useLayer();
     const initialCoords = useRef(readUrlCoords());
+
+    const isLayerActive = (componentName: string) =>
+        activeLayers.length > 0 && availableLayers.some(
+            l => activeLayers.includes(l.id) && l.componentName === componentName
+        );
 
     useEffect(() => {
         setIsMounted(true);
@@ -59,11 +64,11 @@ function MapComponent() {
             >
                 <BaseTileLayer />
 
-                {activeLayers.includes('toll') && (
+                {isLayerActive('NosaziLayer') && (
                     <NosaziLayer key="toll" onLoadingChange={setIsLoadingNosazi} />
                 )}
-                {activeLayers.includes('kooche') && <KoocheLayer key="kooche" />}
-                {activeLayers.includes('mokeb') && <MokebLayer key="mokeb" />}
+                {isLayerActive('KoocheLayer') && <KoocheLayer key="kooche" />}
+                {isLayerActive('MokebLayer') && <MokebLayer key="mokeb" />}
 
                 <MapUrlSync />
                 <PositionMarker />
