@@ -6,12 +6,22 @@ import {
 } from 'lucide-react';
 import {Tooltip} from "react-tooltip";
 import SearchBox2 from "@/app/components/map/boxes/SearchBox";
+import GeneralSearchBox from './GeneralSearchBox';
 import HelpModal from '../overlays/HelpModal';
 import CoordSearch from './CoordSearch';
 import {useState} from "react";
+import { useLayer } from '@/app/contexts/LayerContext';
 
 export default function SearchBox() {
     const [isHelpOpen, setIsHelpOpen] = useState(false);
+    const { activeLayers } = useLayer();
+
+    const hasToll = activeLayers.includes('toll');
+    const hasKooche = activeLayers.includes('kooche');
+    const hasMokeb = activeLayers.includes('mokeb');
+
+    const showGeneralSearch = (hasKooche || hasMokeb) && !hasToll;
+    const showParcelSearch = !showGeneralSearch;
 
     return (
         <div
@@ -26,7 +36,8 @@ export default function SearchBox() {
                 items-center
             "
         >
-        <SearchBox2/>
+        {showParcelSearch && <SearchBox2/>}
+        {showGeneralSearch && <GeneralSearchBox />}
 
             {/* <CoordSearch /> */}
 
