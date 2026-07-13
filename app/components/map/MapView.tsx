@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useLayer } from '@/app/contexts/LayerContext';
 
 const MapContainer = dynamic(
@@ -16,6 +16,8 @@ import BaseTileLayer from './layers/BaseTileLayer';
 import NosaziLayer from './layers/NosaziLayer';
 import ZoomControls from './overlays/ZoomControls';
 import MapLegend from './overlays/MapLegend';
+
+const UserLocationMarker = dynamic(() => import('./markers/UserLocationMarker'), { ssr: false });
 
 const KoocheLayer = dynamic(() => import('./layers/KoocheLayer'), { ssr: false });
 const MokebLayer = dynamic(() => import('./layers/MokebLayer'), { ssr: false });
@@ -38,6 +40,7 @@ function readUrlCoords(): { lat: number; lng: number; zoom: number } {
 function MapComponent() {
     const [isMounted, setIsMounted] = useState(false);
     const [isLoadingNosazi, setIsLoadingNosazi] = useState(false);
+    const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
     const { activeLayers, availableLayers } = useLayer();
     const initialCoords = useRef(readUrlCoords());
 
@@ -45,6 +48,10 @@ function MapComponent() {
         activeLayers.length > 0 && availableLayers.some(
             l => activeLayers.includes(l.id) && l.componentName === componentName
         );
+
+    const handleUserLocated = useCallback((lat: number, lng: number) => {
+        setUserLocation([lat, lng]);
+    }, []);
 
     useEffect(() => {
         setIsMounted(true);
@@ -73,7 +80,8 @@ function MapComponent() {
 
                 <MapUrlSync />
                 <PositionMarker />
-                <ZoomControls />
+                {userLocation && <UserLocationMarker position={userLocation} />}
+                <ZoomControls onUserLocated={handleUserLocated} />
             </MapContainer>
 
             <MapLegend />

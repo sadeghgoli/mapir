@@ -132,7 +132,7 @@ function GuidePopup({ guides, onClose }: { guides: GuideEntry[]; onClose: () => 
     );
 }
 
-export default function ZoomControls() {
+export default function ZoomControls({ onUserLocated }: { onUserLocated?: (lat: number, lng: number) => void }) {
     const [isLocating, setIsLocating] = useState(false);
     const [mapReady, setMapReady] = useState(false);
     const { activeLayers, toggleLayer, isPanelOpen, togglePanel, treeNodes, expanded, toggleExpand, getGuides } = useLayer();
@@ -160,13 +160,15 @@ export default function ZoomControls() {
         }
         navigator.geolocation.getCurrentPosition(
             (position) => {
-                map.setView([position.coords.latitude, position.coords.longitude], 18, { animate: true });
+                const { latitude, longitude } = position.coords;
+                map.setView([latitude, longitude], 18, { animate: true });
+                onUserLocated?.(latitude, longitude);
                 setIsLocating(false);
             },
             () => { alert('خطا در دریافت موقعیت'); setIsLocating(false); },
             { enableHighAccuracy: true, timeout: 10000 }
         );
-    }, [map]);
+    }, [map, onUserLocated]);
 
     return (
         <div className="absolute left-6 bottom-52 z-[10] flex flex-col gap-3" style={{ zIndex: '999' }}>
