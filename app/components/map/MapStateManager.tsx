@@ -42,6 +42,7 @@ export default function MapStateManager() {
         click: (e) => {
             removeAllPoints('marker');
             addPoint('marker', `${e.latlng.lat.toFixed(6)},${e.latlng.lng.toFixed(6)}`);
+            mapController.onMapClick(e.latlng.lat, e.latlng.lng);
         },
     });
 

@@ -1,45 +1,20 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
-import { useMap, useMapEvents } from 'react-leaflet';
-import { Copy, MapPin } from 'lucide-react';
+import { useState, useCallback, useEffect } from 'react';
+import { Copy, X, MapPin } from 'lucide-react';
+import { mapController } from '@/app/utils/mapController';
 
 export default function PointContextMenu() {
-    const map = useMap();
     const [latlng, setLatlng] = useState<{ lat: number; lng: number } | null>(null);
-    const [pixel, setPixel] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
     const [visible, setVisible] = useState(false);
     const [copied, setCopied] = useState(false);
-    const menuRef = useRef<HTMLDivElement>(null);
-    const latlngRef = useRef(latlng);
-    latlngRef.current = latlng;
-
-    const updatePixel = useCallback(() => {
-        if (!latlngRef.current) return;
-        const p = map.latLngToContainerPoint([latlngRef.current.lat, latlngRef.current.lng]);
-        setPixel({ x: p.x, y: p.y });
-    }, [map]);
-
-    useMapEvents({
-        click: (e) => {
-            setLatlng({ lat: e.latlng.lat, lng: e.latlng.lng });
-            const p = map.latLngToContainerPoint(e.latlng);
-            setPixel({ x: p.x, y: p.y });
-            setVisible(true);
-            setCopied(false);
-        },
-        move: () => { updatePixel(); },
-        zoom: () => { updatePixel(); },
-    });
 
     useEffect(() => {
-        const handler = (e: MouseEvent) => {
-            if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-                setVisible(false);
-            }
-        };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
+        return mapController.addClickListener((lat, lng) => {
+            setLatlng({ lat, lng });
+            setVisible(true);
+            setCopied(false);
+        });
     }, []);
 
     useEffect(() => {
@@ -50,52 +25,62 @@ export default function PointContextMenu() {
         return () => document.removeEventListener('keydown', handler);
     }, []);
 
-    const handleCopy = useCallback(async () => {
+    const handleCopy = useCallback(() => {
         if (!latlng) return;
         const text = `${latlng.lat}, ${latlng.lng}`;
-        try {
-            await navigator.clipboard.writeText(text);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-        } catch {
+        try { navigator.clipboard.writeText(text); } catch {
             const ta = document.createElement('textarea');
             ta.value = text;
             document.body.appendChild(ta);
             ta.select();
             document.execCommand('copy');
             document.body.removeChild(ta);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
         }
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
     }, [latlng]);
 
     if (!visible || !latlng) return null;
 
     return (
-        <div
-            ref={menuRef}
-            style={{
-                position: 'absolute',
-                left: pixel.x,
-                top: pixel.y - 8,
-                transform: 'translate(-50%, -100%)',
-                zIndex: 1001,
-            }}
-            className="bg-white rounded-xl shadow-2xl border border-gray-200 py-2 min-w-[200px] animate-fadeIn"
-        >
-            <div className="px-4 pb-2 mb-1 border-b border-gray-100">
-                <p className="text-xs text-gray-400 font-mono" dir="ltr">
-                    {latlng.lat.toFixed(6)}, {latlng.lng.toFixed(6)}
-                </p>
-            </div>
-
-            <button
-                onClick={handleCopy}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors text-right"
+        <>
+            <div
+                className="fixed inset-0 bg-black/30 backdrop-blur-sm"
+                style={{ zIndex: 99998 }}
+                onClick={() => setVisible(false)}
+            />
+            <div
+                className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl shadow-2xl p-6 w-[90%] max-w-sm animate-fadeIn"
+                style={{ zIndex: 99999 }}
+                dir="rtl"
             >
-                <Copy size={16} className="shrink-0" />
-                <span>{copied ? 'کپی شد ✓' : 'کپی مختصات نقطه انتخاب شده'}</span>
-            </button>
-        </div>
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                        <MapPin size={18} className="text-blue-600" />
+                        <span className="font-medium text-gray-800">مختصات نقطه انتخاب شده</span>
+                    </div>
+                    <button
+                        onClick={() => setVisible(false)}
+                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                        <X size={18} />
+                    </button>
+                </div>
+
+                <div className="bg-gray-50 rounded-xl p-4 mb-4 text-center" dir="ltr">
+                    <p className="text-lg font-mono text-gray-800 tracking-wide">
+                        {latlng.lat.toFixed(6)}, {latlng.lng.toFixed(6)}
+                    </p>
+                </div>
+
+                <button
+                    onClick={handleCopy}
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                >
+                    <Copy size={16} />
+                    <span>{copied ? 'کپی شد ✓' : 'کپی مختصات'}</span>
+                </button>
+            </div>
+        </>
     );
 }
