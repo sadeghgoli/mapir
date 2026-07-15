@@ -9,12 +9,6 @@ const iconMap: Record<string, LucideIcon> = {
     Route,
 };
 
-const guideIconMap: Record<string, string> = {
-    eskan: '/images/logo1.png',
-    mokeb: '/images/logo2.png',
-    default: '/images/logo2.png',
-};
-
 export default function MapLegend() {
     const { activeLayers, availableLayers, getGuides } = useLayer();
 
@@ -45,7 +39,7 @@ export default function MapLegend() {
                                     {guides.map(g => (
                                         <div key={g.id} className="flex items-center gap-1.5">
                                             <img
-                                                src={guideIconMap[g.icon || ''] || guideIconMap.default}
+                                                src={g.imageUrl || (g.icon === 'eskan' ? '/images/logo1.png' : '/images/logo2.png')}
                                                 alt={g.title}
                                                 className="w-4 h-4 rounded-full object-cover"
                                             />
