@@ -79,8 +79,23 @@ interface LayerContextType {
 
 const LayerContext = createContext<LayerContextType | undefined>(undefined);
 
+const STORAGE_KEY = 'map-active-layers';
+
+function loadLayersFromStorage(): string[] {
+    if (typeof window === 'undefined') return [];
+    try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        return stored ? JSON.parse(stored) : [];
+    } catch { return []; }
+}
+
+function saveLayersToStorage(layers: string[]) {
+    if (typeof window === 'undefined') return;
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(layers)); } catch {}
+}
+
 export function LayerProvider({ children }: { children: ReactNode }) {
-    const [activeLayers, setActiveLayers] = useState<string[]>([]);
+    const [activeLayers, setActiveLayers] = useState<string[]>(() => loadLayersFromStorage());
     const [availableLayers, setAvailableLayers] = useState<LayerConfig[]>(
         DEFAULT_CATEGORIES.map(nodeToConfig)
     );
@@ -109,17 +124,20 @@ export function LayerProvider({ children }: { children: ReactNode }) {
                 if (cancelled || !nodes) return;
                 const ids = collectLeafIds(nodes);
                 const p = getUrlParams();
-                let fromUrl: string[] = [];
+                let fromUrl: string[] | null = null;
                 if (p.layers) {
                     fromUrl = p.layers.split(',').filter(id => ids.includes(id));
                 }
                 if (getFirstPoint('mokeb')) {
                     const mokebNode = findNodeByComponent(nodes, 'MokebLayer');
-                    if (mokebNode && !fromUrl.includes(mokebNode.id)) {
+                    if (mokebNode && (!fromUrl || !fromUrl.includes(mokebNode.id))) {
+                        if (!fromUrl) fromUrl = [];
                         fromUrl.push(mokebNode.id);
                     }
                 }
-                setActiveLayers(fromUrl);
+                if (fromUrl !== null) {
+                    setActiveLayers(fromUrl);
+                }
                 setHydrated(true);
                 setLoading(false);
             });
@@ -136,6 +154,11 @@ export function LayerProvider({ children }: { children: ReactNode }) {
                 : null,
         });
     }, [activeLayers, hydrated, treeNodes]);
+
+    useEffect(() => {
+        if (!hydrated) return;
+        saveLayersToStorage(activeLayers);
+    }, [activeLayers, hydrated]);
 
     const toggleLayer = useCallback((layerId: string) => {
         setActiveLayers(prev => {
