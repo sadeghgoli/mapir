@@ -40,6 +40,8 @@ export default function MapStateManager() {
             });
         },
         click: (e) => {
+            const target = e.originalEvent?.target as HTMLElement | null;
+            if (target && !target.closest('.leaflet-pane') && !target.classList.contains('leaflet-container')) return;
             removeAllPoints('marker');
             addPoint('marker', `${e.latlng.lat.toFixed(6)},${e.latlng.lng.toFixed(6)}`);
             mapController.onMapClick(e.latlng.lat, e.latlng.lng);

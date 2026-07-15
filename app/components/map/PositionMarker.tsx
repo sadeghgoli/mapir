@@ -54,6 +54,8 @@ export default function PositionMarker() {
             setPosition([c.lat, c.lng]);
         },
         click: (e) => {
+            const target = e.originalEvent?.target as HTMLElement | null;
+            if (target && !target.closest('.leaflet-pane') && !target.classList.contains('leaflet-container')) return;
             setPosition([e.latlng.lat, e.latlng.lng]);
         },
     });
