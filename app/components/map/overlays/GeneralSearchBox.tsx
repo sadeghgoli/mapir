@@ -28,7 +28,7 @@ const alleyways: Alleyway[] = [
 ];
 
 export default function GeneralSearchBox() {
-    const { activeLayers } = useLayer();
+    const { activeLayers, availableLayers } = useLayer();
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<{ label: string; lat: number; lng: number; id?: string }[]>([]);
     const [isOpen, setIsOpen] = useState(false);
@@ -37,8 +37,11 @@ export default function GeneralSearchBox() {
     const containerRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    const isMokebActive = activeLayers.includes('mokeb');
-    const isKoocheActive = activeLayers.includes('kooche');
+    const isLayerActive = (componentName: string) =>
+        availableLayers.some(l => activeLayers.includes(l.id) && l.componentName === componentName);
+
+    const isMokebActive = isLayerActive('MokebLayer');
+    const isKoocheActive = isLayerActive('KoocheLayer');
 
     useEffect(() => {
         if (isMokebActive && !mokebLoaded) {

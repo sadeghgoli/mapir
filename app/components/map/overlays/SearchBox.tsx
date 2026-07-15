@@ -14,11 +14,14 @@ import { useLayer } from '@/app/contexts/LayerContext';
 
 export default function SearchBox() {
     const [isHelpOpen, setIsHelpOpen] = useState(false);
-    const { activeLayers } = useLayer();
+    const { activeLayers, availableLayers } = useLayer();
 
-    const hasToll = activeLayers.includes('toll');
-    const hasKooche = activeLayers.includes('kooche');
-    const hasMokeb = activeLayers.includes('mokeb');
+    const isLayerActive = (componentName: string) =>
+        availableLayers.some(l => activeLayers.includes(l.id) && l.componentName === componentName);
+
+    const hasToll = isLayerActive('NosaziLayer');
+    const hasKooche = isLayerActive('KoocheLayer');
+    const hasMokeb = isLayerActive('MokebLayer');
 
     const showGeneralSearch = (hasKooche || hasMokeb) && !hasToll;
     const showParcelSearch = !showGeneralSearch;

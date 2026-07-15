@@ -13,21 +13,6 @@ export interface LayerConfig {
     componentName: string | null;
 }
 
-const DEFAULT_CATEGORIES: CategoryTreeNode[] = [
-    {
-        id: 'toll', name: 'پرداخت عوارض', icon: 'CreditCard', color: '#3B82F6',
-        sortOrder: 1, isActive: true, componentName: 'NosaziLayer', children: [], guides: [],
-    },
-    {
-        id: 'mokeb', name: 'موکب‌ها', icon: 'MapPin', color: '#8B5CF6',
-        sortOrder: 2, isActive: true, componentName: 'MokebLayer', children: [], guides: [],
-    },
-    {
-        id: 'kooche', name: 'کوچه‌ها', icon: 'Route', color: '#10B981',
-        sortOrder: 3, isActive: true, componentName: 'KoocheLayer', children: [], guides: [],
-    },
-];
-
 function nodeToConfig(node: CategoryTreeNode): LayerConfig {
     return {
         id: node.id,
@@ -96,10 +81,8 @@ function saveLayersToStorage(layers: string[]) {
 
 export function LayerProvider({ children }: { children: ReactNode }) {
     const [activeLayers, setActiveLayers] = useState<string[]>(() => loadLayersFromStorage());
-    const [availableLayers, setAvailableLayers] = useState<LayerConfig[]>(
-        DEFAULT_CATEGORIES.map(nodeToConfig)
-    );
-    const [treeNodes, setTreeNodes] = useState<CategoryTreeNode[]>(DEFAULT_CATEGORIES);
+    const [availableLayers, setAvailableLayers] = useState<LayerConfig[]>([]);
+    const [treeNodes, setTreeNodes] = useState<CategoryTreeNode[]>([]);
     const [isPanelOpen, setPanelOpen] = useState(false);
     const [loading, setLoading] = useState(true);
     const [hydrated, setHydrated] = useState(false);
@@ -114,14 +97,7 @@ export function LayerProvider({ children }: { children: ReactNode }) {
                 setTreeNodes(nodes);
                 const configs = flattenTree(nodes).map(nodeToConfig);
                 setAvailableLayers(configs);
-                return nodes;
-            })
-            .catch(() => {
-                if (cancelled) return;
-                return DEFAULT_CATEGORIES;
-            })
-            .then(nodes => {
-                if (cancelled || !nodes) return;
+
                 const ids = collectLeafIds(nodes);
                 const p = getUrlParams();
                 let fromUrl: string[] | null = null;
@@ -138,8 +114,15 @@ export function LayerProvider({ children }: { children: ReactNode }) {
                 if (fromUrl !== null) {
                     setActiveLayers(fromUrl);
                 }
-                setHydrated(true);
-                setLoading(false);
+            })
+            .catch(() => {
+                /* Layers API unavailable — no layers to show */
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setHydrated(true);
+                    setLoading(false);
+                }
             });
 
         return () => { cancelled = true; };
@@ -174,7 +157,7 @@ export function LayerProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const getGuides = useCallback((nodeId: string): GuideEntry[] => {
-        function search(list: CategoryTreeNode[]): GuideEntry[] {
+        function search(list: CategoryTreeNode[]) {
             for (const n of list) {
                 if (n.id === nodeId) return n.guides;
                 if (n.children.length > 0) {
