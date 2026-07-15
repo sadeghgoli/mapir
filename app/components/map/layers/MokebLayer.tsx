@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { Marker, useMap } from 'react-leaflet';
 import { divIcon } from 'leaflet';
-import { updateUrl, getUrlParams } from '@/app/utils/urlManager';
+import { getFirstPoint, setPoints, removeAllPoints } from '@/app/utils/urlManager';
 import MokebModal from '../overlays/MokebModal';
 import RouteLayer from '../routing/RouteLayer';
 import type { RouteData } from '../routing/RouteLayer';
@@ -69,20 +69,18 @@ export default function MokebLayer() {
     const [routeData, setRouteData] = useState<RouteData | null>(null);
     const initDone = useRef(false);
 
-    const urlMokebId = typeof window !== 'undefined'
-        ? getUrlParams().mokebId
-        : undefined;
+    const urlMokebId = getFirstPoint('mokeb');
 
     const openMokeb = (item: ApiMokeb) => {
         setSelected(item);
         setRouteData(null);
-        updateUrl({ mokebId: item.id });
+        setPoints('mokeb', [item.id]);
         map.setView([item.latitude, item.longitude], 18, { animate: true, duration: 1 });
     };
 
     const handleCloseModal = () => {
         setSelected(null);
-        updateUrl({ mokebId: null });
+        removeAllPoints('mokeb');
     };
 
     const handleShowRoute = useCallback((originLat: number, originLng: number) => {

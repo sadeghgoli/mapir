@@ -18,6 +18,7 @@ import ZoomControls from './overlays/ZoomControls';
 import MapLegend from './overlays/MapLegend';
 
 const UserLocationMarker = dynamic(() => import('./markers/UserLocationMarker'), { ssr: false });
+const PointContextMenu = dynamic(() => import('./overlays/PointContextMenu'), { ssr: false });
 
 const KoocheLayer = dynamic(() => import('./layers/KoocheLayer'), { ssr: false });
 const MokebLayer = dynamic(() => import('./layers/MokebLayer'), { ssr: false });
@@ -81,6 +82,7 @@ function MapComponent() {
                 <MapUrlSync />
                 <PositionMarker />
                 {userLocation && <UserLocationMarker position={userLocation} />}
+                <PointContextMenu />
                 <ZoomControls onUserLocated={handleUserLocated} />
             </MapContainer>
 

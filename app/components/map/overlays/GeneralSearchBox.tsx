@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLayer } from '@/app/contexts/LayerContext';
 import { mapController } from '@/app/utils/mapController';
+import { addPoint, removeAllPoints, getPointsByLayer } from '@/app/utils/urlManager';
 
 interface MokebItem {
     id: string;
@@ -29,7 +30,7 @@ const alleyways: Alleyway[] = [
 export default function GeneralSearchBox() {
     const { activeLayers } = useLayer();
     const [query, setQuery] = useState('');
-    const [results, setResults] = useState<{ label: string; lat: number; lng: number }[]>([]);
+    const [results, setResults] = useState<{ label: string; lat: number; lng: number; id?: string }[]>([]);
     const [isOpen, setIsOpen] = useState(false);
     const [mokebData, setMokebData] = useState<MokebItem[]>([]);
     const [mokebLoaded, setMokebLoaded] = useState(false);
@@ -73,6 +74,7 @@ export default function GeneralSearchBox() {
                 label: m.title + (m.categoryName ? ` (${m.categoryName})` : ''),
                 lat: m.latitude,
                 lng: m.longitude,
+                id: m.id,
             })));
             setIsOpen(filtered.length > 0);
         } else if (isKoocheActive) {
@@ -81,14 +83,18 @@ export default function GeneralSearchBox() {
             );
             setResults(filtered.map(a => {
                 const mid = a.positions[Math.floor(a.positions.length / 2)];
-                return { label: a.name, lat: mid[0], lng: mid[1] };
+                return { label: a.name, lat: mid[0], lng: mid[1], id: a.name };
             }));
             setIsOpen(filtered.length > 0);
         }
     }, [isMokebActive, isKoocheActive, mokebData]);
 
-    const handleSelect = useCallback((lat: number, lng: number) => {
+    const handleSelect = useCallback((lat: number, lng: number, layer?: string, id?: string) => {
         mapController.flyTo?.(lat, lng, 18);
+        if (layer && id) {
+            removeAllPoints(layer);
+            addPoint(layer, id);
+        }
         setQuery('');
         setResults([]);
         setIsOpen(false);
@@ -116,7 +122,7 @@ export default function GeneralSearchBox() {
                     {results.map((r, i) => (
                         <button
                             key={i}
-                            onClick={() => handleSelect(r.lat, r.lng)}
+                            onClick={() => handleSelect(r.lat, r.lng, isMokebActive ? 'mokeb' : 'kooche', r.id)}
                             className="w-full text-right px-4 py-3 hover:bg-gray-50 transition-colors text-sm text-gray-700 border-b border-gray-50 last:border-b-0"
                         >
                             {r.label}

@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
-import { updateUrl, getUrlParams } from '@/app/utils/urlManager';
+import { updateUrl, getUrlParams, getFirstPoint } from '@/app/utils/urlManager';
 import { fetchCategoryTree, flattenTree, type CategoryTreeNode, type GuideEntry } from '@/app/services/layer.service';
 
 export interface LayerConfig {
@@ -113,7 +113,7 @@ export function LayerProvider({ children }: { children: ReactNode }) {
                 if (p.layers) {
                     fromUrl = p.layers.split(',').filter(id => ids.includes(id));
                 }
-                if (p.mokebId) {
+                if (getFirstPoint('mokeb')) {
                     const mokebNode = findNodeByComponent(nodes, 'MokebLayer');
                     if (mokebNode && !fromUrl.includes(mokebNode.id)) {
                         fromUrl.push(mokebNode.id);

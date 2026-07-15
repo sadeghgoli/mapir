@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { useMap, useMapEvents } from 'react-leaflet';
 import { mapController } from '@/app/utils/mapController';
-import { updateUrl, readCoord } from '@/app/utils/urlManager';
+import { updateUrl, readCoord, addPoint, removeAllPoints, migrateLegacyParams } from '@/app/utils/urlManager';
 
 const DEFAULT_LAT = 36.21;
 const DEFAULT_LNG = 57.667;
@@ -16,6 +16,8 @@ export default function MapStateManager() {
     useEffect(() => {
         if (initDone.current) return;
         initDone.current = true;
+
+        migrateLegacyParams();
 
         const lat = readCoord('lat', DEFAULT_LAT);
         const lng = readCoord('lng', DEFAULT_LNG);
@@ -35,15 +37,11 @@ export default function MapStateManager() {
                 lat: c.lat.toFixed(6),
                 lng: c.lng.toFixed(6),
                 zoom: map.getZoom().toString(),
-                mlat: null,
-                mlng: null,
             });
         },
         click: (e) => {
-            updateUrl({
-                mlat: e.latlng.lat.toFixed(6),
-                mlng: e.latlng.lng.toFixed(6),
-            });
+            removeAllPoints('marker');
+            addPoint('marker', `${e.latlng.lat.toFixed(6)},${e.latlng.lng.toFixed(6)}`);
         },
     });
 

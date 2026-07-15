@@ -3,14 +3,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMap, useMapEvents, Marker } from 'react-leaflet';
 import { divIcon } from 'leaflet';
-import { getUrlParams } from '@/app/utils/urlManager';
+import { getFirstPoint, getAllPoints } from '@/app/utils/urlManager';
 
 function readMarkerFromUrl(): [number, number] | null {
-    const p = getUrlParams();
-    const mlat = parseFloat(p.mlat || '');
-    const mlng = parseFloat(p.mlng || '');
-    if (!isNaN(mlat) && !isNaN(mlng) && mlat >= -90 && mlat <= 90 && mlng >= -180 && mlng <= 180) {
-        return [mlat, mlng];
+    const val = getFirstPoint('marker');
+    if (!val) return null;
+    const parts = val.split(',').map(s => s.trim());
+    if (parts.length !== 2) return null;
+    const lat = parseFloat(parts[0]);
+    const lng = parseFloat(parts[1]);
+    if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+        return [lat, lng];
     }
     return null;
 }

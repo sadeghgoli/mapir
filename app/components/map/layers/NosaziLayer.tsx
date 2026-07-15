@@ -6,26 +6,28 @@ import NosaziModal from '../overlays/NosaziModal';
 import 'leaflet/dist/leaflet.css';
 
 // هوک سفارشی برای مدیریت URL
-import { updateUrl } from '@/app/utils/urlManager';
+import { getFirstPoint, setPoints, removeAllPoints } from '@/app/utils/urlManager';
 
-function useUrlParam(paramName: string) {
+function useTollPoint() {
     const [paramValue, setParamValue] = useState<string | null>(null);
 
     useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        setParamValue(params.get(paramName));
+        setParamValue(getFirstPoint('toll'));
 
         const handlePopState = () => {
-            const newParams = new URLSearchParams(window.location.search);
-            setParamValue(newParams.get(paramName));
+            setParamValue(getFirstPoint('toll'));
         };
 
         window.addEventListener('popstate', handlePopState);
         return () => window.removeEventListener('popstate', handlePopState);
-    }, [paramName]);
+    }, []);
 
     const updateParam = (value: string | null) => {
-        updateUrl({ [paramName]: value }, 'push');
+        if (value) {
+            setPoints('toll', [value], 'push');
+        } else {
+            removeAllPoints('toll');
+        }
         setParamValue(value);
     };
 
@@ -123,7 +125,7 @@ export default function NosaziLayer({ onLoadingChange }: NosaziLayerProps) {
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedNosazi, setSelectedNosazi] = useState<any>(null);
-    const { paramValue: urlPointValue, updateParam } = useUrlParam('point');
+    const { paramValue: urlPointValue, updateParam } = useTollPoint();
 
     // رفرنس برای دسترسی به مقدار به‌روز isModalOpen داخل Closureها
     const isModalOpenRef = useRef(isModalOpen);
