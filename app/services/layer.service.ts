@@ -41,6 +41,30 @@ export async function fetchCategoryTree(): Promise<CategoryTreeNode[]> {
     return json.data;
 }
 
+export interface GuideItem {
+    id: string;
+    title: string;
+    description: string | null;
+    imageUrl: string | null;
+    icon: string;
+    sortOrder: number;
+    isActive: boolean;
+    createdAt: string;
+}
+
+interface GuideListResponseAll {
+    success: boolean;
+    data: GuideItem[];
+}
+
+export async function fetchAllGuides(): Promise<GuideItem[]> {
+    const res = await fetch('/api/layer-guide/guide');
+    if (!res.ok) throw new Error(`Failed to fetch guides: ${res.status}`);
+    const json: GuideListResponseAll = await res.json();
+    if (!json.success) throw new Error('API returned success: false');
+    return json.data;
+}
+
 export async function fetchGuidesByCategory(categoryId: string): Promise<GuideEntry[]> {
     const res = await fetch(`/api/map-layers/api/guide/by-category/${categoryId}`);
     if (!res.ok) throw new Error(`Failed to fetch guides: ${res.status}`);
