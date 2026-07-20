@@ -51,7 +51,7 @@ export default function MapStateManager() {
             addPoint('marker', `${latStr},${lngStr}`);
             mapController.onMapClick(e.latlng.lat, e.latlng.lng);
 
-            if (activeLayers.length > 0) {
+            if (activeLayers.length === 0) {
                 const coordText = latStr + ', ' + lngStr;
                 const escaped = coordText.replace(/'/g, "\\'");
                 const popupHtml = '<div style="text-align:center;direction:rtl;font-family:IRANSans,sans-serif;min-width:220px;padding:4px">' +
