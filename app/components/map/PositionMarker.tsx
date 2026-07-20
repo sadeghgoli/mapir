@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useMap, useMapEvents, Marker } from 'react-leaflet';
 import { divIcon } from 'leaflet';
 import { getFirstPoint, getAllPoints } from '@/app/utils/urlManager';
+import { useLayer } from '@/app/contexts/LayerContext';
 
 function readMarkerFromUrl(): [number, number] | null {
     const val = getFirstPoint('marker');
@@ -38,6 +39,7 @@ const markerIcon = divIcon({
 
 export default function PositionMarker() {
     const map = useMap();
+    const { activeLayers } = useLayer();
     const [position, setPosition] = useState<[number, number] | null>(null);
     const initDone = useRef(false);
 
@@ -60,7 +62,7 @@ export default function PositionMarker() {
         },
     });
 
-    if (!position) return null;
+    if (!position || activeLayers.length > 0) return null;
 
     return (
         <Marker position={position} icon={markerIcon} />
