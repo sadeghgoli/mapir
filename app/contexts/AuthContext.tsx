@@ -15,8 +15,10 @@ interface User {
 interface AuthContextType {
     user: User | null;
     accessToken: string | null;
+    permissions: string[];
     isLoading: boolean;
     isAuthenticated: boolean;
+    hasPermission: (permission: string) => boolean;
     login: () => Promise<void>;
     logout: () => Promise<void>;
 }
@@ -43,25 +45,54 @@ const removeLocalStorage = (key: string): void => {
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [accessToken, setAccessToken] = useState<string | null>(null);
+    const [permissions, setPermissions] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [mounted, setMounted] = useState(false);
     const router = useRouter();
 
-    const saveAuthData = useCallback((token: string, userData: User) => {
+    const hasPermission = useCallback((permission: string): boolean => {
+        return permissions.includes(permission);
+    }, [permissions]);
+
+    const parsePermissionsFromToken = useCallback((token: string): string[] => {
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            const perms: string[] = [];
+            for (const key in payload) {
+                if (key === 'permission') {
+                    if (Array.isArray(payload[key])) {
+                        perms.push(...payload[key]);
+                    } else {
+                        perms.push(payload[key]);
+                    }
+                }
+            }
+            return perms;
+        } catch {
+            return [];
+        }
+    }, []);
+
+    const saveAuthData = useCallback((token: string, userData: User, perms?: string[]) => {
         setAccessToken(token);
         setUser(userData);
+        const p = perms ?? parsePermissionsFromToken(token);
+        setPermissions(p);
         setLocalStorage('token', token);
         setLocalStorage('user', JSON.stringify(userData));
-    }, []);
+        setLocalStorage('permissions', JSON.stringify(p));
+    }, [parsePermissionsFromToken]);
 
     const clearAuthData = useCallback(() => {
         setAccessToken(null);
         setUser(null);
+        setPermissions([]);
         removeLocalStorage('token');
         removeLocalStorage('user');
+        removeLocalStorage('permissions');
     }, []);
 
-    const fetchUserInfo = useCallback(async (token: string): Promise<User | null> => {
+    const fetchUserInfo = useCallback(async (token: string): Promise<{ user: User | null; permissions: string[] }> => {
         try {
             const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
                 headers: {
@@ -72,12 +103,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             if (response.ok) {
                 const result = await response.json();
-                return result.data || result;
+                return {
+                    user: result.data || result,
+                    permissions: result.permissions ?? [],
+                };
             }
-            return null;
+            return { user: null, permissions: [] };
         } catch (error) {
             console.error('Error fetching user info:', error);
-            return null;
+            return { user: null, permissions: [] };
         }
     }, []);
 
@@ -141,18 +175,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             const storedToken = getLocalStorage('token');
             const storedUser = getLocalStorage('user');
+            const storedPermissions = getLocalStorage('permissions');
 
             if (storedToken && storedUser) {
                 try {
                     setAccessToken(storedToken);
                     setUser(JSON.parse(storedUser));
+                    setPermissions(storedPermissions ? JSON.parse(storedPermissions) : []);
                 } catch {
                     clearAuthData();
                 }
             } else if (storedToken && !storedUser) {
-                const userInfo = await fetchUserInfo(storedToken);
-                if (userInfo) {
-                    saveAuthData(storedToken, userInfo);
+                const { user, permissions } = await fetchUserInfo(storedToken);
+                if (user) {
+                    saveAuthData(storedToken, user, permissions);
                 } else {
                     clearAuthData();
                 }
@@ -172,18 +208,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (e.key === 'token' && e.newValue) {
                 const token = e.newValue;
                 const storedUser = localStorage.getItem('user');
+                const storedPermissions = localStorage.getItem('permissions');
 
                 if (storedUser) {
                     try {
                         setAccessToken(token);
                         setUser(JSON.parse(storedUser));
+                        setPermissions(storedPermissions ? JSON.parse(storedPermissions) : []);
                     } catch {
-                        const userData = await fetchUserInfo(token);
-                        if (userData) saveAuthData(token, userData);
+                        const { user, permissions } = await fetchUserInfo(token);
+                        if (user) saveAuthData(token, user, permissions);
                     }
                 } else {
-                    const userData = await fetchUserInfo(token);
-                    if (userData) saveAuthData(token, userData);
+                    const { user, permissions } = await fetchUserInfo(token);
+                    if (user) saveAuthData(token, user, permissions);
                 }
             }
 
@@ -201,9 +239,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!mounted || !accessToken) return;
 
         const validateToken = async () => {
-            const userInfo = await fetchUserInfo(accessToken);
+            const { user: userInfo, permissions: perms } = await fetchUserInfo(accessToken);
             if (!userInfo) {
                 await logout();
+            } else {
+                setPermissions(perms);
             }
         };
 
@@ -217,8 +257,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 value={{
                     user: null,
                     accessToken: null,
+                    permissions: [],
                     isLoading: true,
                     isAuthenticated: false,
+                    hasPermission: () => false,
                     login: async () => {},
                     logout: async () => {},
                 }}
@@ -233,8 +275,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             value={{
                 user,
                 accessToken,
+                permissions,
                 isLoading,
                 isAuthenticated: !!accessToken && !!user,
+                hasPermission,
                 login,
                 logout,
             }}
