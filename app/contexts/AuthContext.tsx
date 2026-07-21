@@ -16,9 +16,11 @@ interface AuthContextType {
     user: User | null;
     accessToken: string | null;
     permissions: string[];
+    roles: string[];
     isLoading: boolean;
     isAuthenticated: boolean;
     hasPermission: (permission: string) => boolean;
+    hasRole: (role: string) => boolean;
     login: () => Promise<void>;
     logout: () => Promise<void>;
 }
@@ -46,6 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [accessToken, setAccessToken] = useState<string | null>(null);
     const [permissions, setPermissions] = useState<string[]>([]);
+    const [roles, setRoles] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [mounted, setMounted] = useState(false);
     const router = useRouter();
@@ -54,45 +57,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return permissions.includes(permission);
     }, [permissions]);
 
-    const parsePermissionsFromToken = useCallback((token: string): string[] => {
+    const hasRole = useCallback((role: string): boolean => {
+        return roles.includes(role);
+    }, [roles]);
+
+    const parseClaimsFromToken = useCallback((token: string) => {
         try {
             const payload = JSON.parse(atob(token.split('.')[1]));
             const perms: string[] = [];
+            const rls: string[] = [];
             for (const key in payload) {
+                const val = payload[key];
                 if (key === 'permission') {
-                    if (Array.isArray(payload[key])) {
-                        perms.push(...payload[key]);
-                    } else {
-                        perms.push(payload[key]);
-                    }
+                    if (Array.isArray(val)) perms.push(...val);
+                    else perms.push(val);
+                }
+                if (key === 'role') {
+                    if (Array.isArray(val)) rls.push(...val);
+                    else rls.push(val);
                 }
             }
-            return perms;
+            return { permissions: perms, roles: rls };
         } catch {
-            return [];
+            return { permissions: [] as string[], roles: [] as string[] };
         }
     }, []);
 
-    const saveAuthData = useCallback((token: string, userData: User, perms?: string[]) => {
+    const saveAuthData = useCallback((token: string, userData: User, perms?: string[], rls?: string[]) => {
         setAccessToken(token);
         setUser(userData);
-        const p = perms ?? parsePermissionsFromToken(token);
+        const claims = parseClaimsFromToken(token);
+        const p = perms ?? claims.permissions;
+        const r = rls ?? claims.roles;
         setPermissions(p);
+        setRoles(r);
         setLocalStorage('token', token);
         setLocalStorage('user', JSON.stringify(userData));
         setLocalStorage('permissions', JSON.stringify(p));
-    }, [parsePermissionsFromToken]);
+        setLocalStorage('roles', JSON.stringify(r));
+    }, [parseClaimsFromToken]);
 
     const clearAuthData = useCallback(() => {
         setAccessToken(null);
         setUser(null);
         setPermissions([]);
+        setRoles([]);
         removeLocalStorage('token');
         removeLocalStorage('user');
         removeLocalStorage('permissions');
+        removeLocalStorage('roles');
     }, []);
 
-    const fetchUserInfo = useCallback(async (token: string): Promise<{ user: User | null; permissions: string[] }> => {
+    const fetchUserInfo = useCallback(async (token: string): Promise<{ user: User | null; permissions: string[]; roles: string[] }> => {
         try {
             const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
                 headers: {
@@ -103,15 +119,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             if (response.ok) {
                 const result = await response.json();
+                const { permissions: p, roles: r } = parseClaimsFromToken(token);
                 return {
                     user: result.data || result,
-                    permissions: result.permissions ?? [],
+                    permissions: result.permissions ?? p,
+                    roles: r,
                 };
             }
-            return { user: null, permissions: [] };
+            return { user: null, permissions: [], roles: [] };
         } catch (error) {
             console.error('Error fetching user info:', error);
-            return { user: null, permissions: [] };
+            return { user: null, permissions: [], roles: [] };
         }
     }, []);
 
@@ -182,13 +200,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     setAccessToken(storedToken);
                     setUser(JSON.parse(storedUser));
                     setPermissions(storedPermissions ? JSON.parse(storedPermissions) : []);
+                    const storedRoles = getLocalStorage('roles');
+                    setRoles(storedRoles ? JSON.parse(storedRoles) : []);
                 } catch {
                     clearAuthData();
                 }
             } else if (storedToken && !storedUser) {
-                const { user, permissions } = await fetchUserInfo(storedToken);
+                const { user, permissions, roles } = await fetchUserInfo(storedToken);
                 if (user) {
-                    saveAuthData(storedToken, user, permissions);
+                    saveAuthData(storedToken, user, permissions, roles);
                 } else {
                     clearAuthData();
                 }
@@ -215,13 +235,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         setAccessToken(token);
                         setUser(JSON.parse(storedUser));
                         setPermissions(storedPermissions ? JSON.parse(storedPermissions) : []);
+                        const storedRoles = localStorage.getItem('roles');
+                        setRoles(storedRoles ? JSON.parse(storedRoles) : []);
                     } catch {
-                        const { user, permissions } = await fetchUserInfo(token);
-                        if (user) saveAuthData(token, user, permissions);
+                        const { user, permissions, roles } = await fetchUserInfo(token);
+                        if (user) saveAuthData(token, user, permissions, roles);
                     }
                 } else {
-                    const { user, permissions } = await fetchUserInfo(token);
-                    if (user) saveAuthData(token, user, permissions);
+                    const { user, permissions, roles } = await fetchUserInfo(token);
+                    if (user) saveAuthData(token, user, permissions, roles);
                 }
             }
 
@@ -239,11 +261,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!mounted || !accessToken) return;
 
         const validateToken = async () => {
-            const { user: userInfo, permissions: perms } = await fetchUserInfo(accessToken);
+            const { user: userInfo, permissions: perms, roles: rls } = await fetchUserInfo(accessToken);
             if (!userInfo) {
                 await logout();
             } else {
                 setPermissions(perms);
+                setRoles(rls);
             }
         };
 
@@ -258,9 +281,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     user: null,
                     accessToken: null,
                     permissions: [],
+                    roles: [],
                     isLoading: true,
                     isAuthenticated: false,
                     hasPermission: () => false,
+                    hasRole: () => false,
                     login: async () => {},
                     logout: async () => {},
                 }}
@@ -276,9 +301,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 user,
                 accessToken,
                 permissions,
+                roles,
                 isLoading,
                 isAuthenticated: !!accessToken && !!user,
                 hasPermission,
+                hasRole,
                 login,
                 logout,
             }}
