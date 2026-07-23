@@ -100,7 +100,7 @@ function GuidePopup({ guides, onClose }: { guides: GuideEntry[]; onClose: () => 
     return (
         <>
             <div className="fixed inset-0 z-50" onClick={onClose} />
-            <div className="absolute left-0 bottom-full mb-2 z-50 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 min-w-[260px] max-w-[320px] animate-fadeIn" dir="rtl">
+            <div className="fixed bottom-4 right-4 z-50 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 min-w-[260px] max-w-[320px] animate-fadeIn" dir="rtl">
                 <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-bold text-gray-800">راهنما</h3>
                     <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">

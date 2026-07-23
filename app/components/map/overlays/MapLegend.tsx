@@ -18,7 +18,7 @@ export default function MapLegend() {
 
     return (
         <div
-            className="absolute bottom-24 left-4 z-[1000] bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-3 min-w-[160px]"
+            className="absolute bottom-24 right-4 z-[1000] bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-3 min-w-[160px]"
             dir="rtl"
         >
             <p className="text-xs font-bold text-gray-500 mb-2 border-b border-gray-100 pb-1.5">راهنما</p>
