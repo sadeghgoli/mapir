@@ -52,8 +52,13 @@ export default function PositionMarker() {
 
     useMapEvents({
         moveend: () => {
-            const c = map.getCenter();
-            setPosition([c.lat, c.lng]);
+            const urlMarker = readMarkerFromUrl();
+            if (urlMarker) {
+                setPosition(urlMarker);
+            } else {
+                const c = map.getCenter();
+                setPosition([c.lat, c.lng]);
+            }
         },
         click: (e) => {
             const target = e.originalEvent?.target as HTMLElement | null;
