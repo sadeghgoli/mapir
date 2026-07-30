@@ -357,7 +357,7 @@ export default function MapLibreNosaziLayer({ onLoadingChange }: MapLibreNosaziL
     const loadData = async () => {
         if (!map) return;
 
-        const currentZoom = map.getZoom();
+        const currentZoom = Math.round(map.getZoom());
 
         if (currentZoom < 16) {
             const src = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource;

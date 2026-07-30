@@ -41,7 +41,7 @@ export default function MapLibreMapStateManager() {
             updateUrl({
                 lat: c.lat.toFixed(6),
                 lng: c.lng.toFixed(6),
-                zoom: map.getZoom().toString(),
+                zoom: Math.round(map.getZoom()).toString(),
             });
         };
 
