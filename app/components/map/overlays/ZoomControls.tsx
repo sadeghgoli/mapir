@@ -5,10 +5,10 @@ import {
     CreditCard, Route, MapPin, Check,
     ChevronLeft, ChevronDown, Info, X,
 } from 'lucide-react';
-import { useMap } from 'react-leaflet';
 import { useState, useCallback, useEffect } from 'react';
 import { useLayer } from '@/app/contexts/LayerContext';
 import type { CategoryTreeNode, GuideEntry } from '@/app/services/layer.service';
+import { useMapLibre } from '@/app/contexts/MapLibreMapContext';
 
 const layerIconMap: Record<string, React.ReactNode> = {
     CreditCard: <CreditCard size={16} />,
@@ -134,24 +134,20 @@ function GuidePopup({ guides, onClose }: { guides: GuideEntry[]; onClose: () => 
 
 export default function ZoomControls({ onUserLocated }: { onUserLocated?: (lat: number, lng: number) => void }) {
     const [isLocating, setIsLocating] = useState(false);
-    const [mapReady, setMapReady] = useState(false);
     const { activeLayers, toggleLayer, isPanelOpen, togglePanel, treeNodes, expanded, toggleExpand, getGuides } = useLayer();
     const [guideGuides, setGuideGuides] = useState<GuideEntry[] | null>(null);
 
-    let map;
-    try {
-        map = useMap();
-        if (map && !mapReady) setMapReady(true);
-    } catch {
-        return null;
-    }
+    const map = useMapLibre();
 
-    if (!map) return null;
-
-    const handleZoomIn = useCallback(() => map.zoomIn(), [map]);
-    const handleZoomOut = useCallback(() => map.zoomOut(), [map]);
+    const handleZoomIn = useCallback(() => {
+        if (map) map.zoomIn({ duration: 300 });
+    }, [map]);
+    const handleZoomOut = useCallback(() => {
+        if (map) map.zoomOut({ duration: 300 });
+    }, [map]);
 
     const handleLocate = useCallback(() => {
+        if (!map) return;
         setIsLocating(true);
         if (!navigator.geolocation) {
             alert('مرورگر شما از موقعیت مکانی پشتیبانی نمی‌کند');
@@ -161,7 +157,7 @@ export default function ZoomControls({ onUserLocated }: { onUserLocated?: (lat: 
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 const { latitude, longitude } = position.coords;
-                map.setView([latitude, longitude], 18, { animate: true });
+                map.flyTo({ center: [longitude, latitude], zoom: 18, duration: 1000 });
                 onUserLocated?.(latitude, longitude);
                 setIsLocating(false);
             },
@@ -169,6 +165,8 @@ export default function ZoomControls({ onUserLocated }: { onUserLocated?: (lat: 
             { enableHighAccuracy: true, timeout: 10000 }
         );
     }, [map, onUserLocated]);
+
+    if (!map) return null;
 
     return (
         <div className="absolute left-6 bottom-52 z-[10] flex flex-col gap-3" style={{ zIndex: '999' }}>

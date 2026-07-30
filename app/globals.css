@@ -1,5 +1,12 @@
 @import "tailwindcss";
-@import "leaflet/dist/leaflet.css";
+
+/* ===== OLD LEAFLET IMPLEMENTATION ===== */
+/* @import "leaflet/dist/leaflet.css"; */
+/* ===== END OLD LEAFLET IMPLEMENTATION ===== */
+
+/* ===== NEW MAPLIBRE IMPLEMENTATION ===== */
+@import "maplibre-gl/dist/maplibre-gl.css";
+/* ===== END NEW MAPLIBRE IMPLEMENTATION ===== */
 
 :root {
   --background: #ffffff;

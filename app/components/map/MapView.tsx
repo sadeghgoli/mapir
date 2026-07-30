@@ -4,6 +4,8 @@ import dynamic from 'next/dynamic';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useLayer } from '@/app/contexts/LayerContext';
 
+// ===== OLD LEAFLET IMPLEMENTATION =====
+/*
 const MapContainer = dynamic(
     () => import('react-leaflet').then((mod) => mod.MapContainer),
     {
@@ -23,6 +25,21 @@ const KoocheLayer = dynamic(() => import('./layers/KoocheLayer'), { ssr: false }
 const MokebLayer = dynamic(() => import('./layers/MokebLayer'), { ssr: false });
 const MapUrlSync = dynamic(() => import('./MapUrlSync'), { ssr: false });
 const PositionMarker = dynamic(() => import('./PositionMarker'), { ssr: false });
+*/
+// ===== END OLD LEAFLET IMPLEMENTATION =====
+
+// ===== NEW MAPLIBRE IMPLEMENTATION =====
+import { MapLibreProvider } from '@/app/contexts/MapLibreMapContext';
+import MapLibreMapStateManager from './MapLibreMapStateManager';
+import MapLibreBaseTileLayer from './layers/MapLibreBaseTileLayer';
+import MapLibreNosaziLayer from './layers/MapLibreNosaziLayer';
+import MapLibreKoocheLayer from './layers/MapLibreKoocheLayer';
+import MapLibreMokebLayer from './layers/MapLibreMokebLayer';
+import MapLibrePositionMarker from './MapLibrePositionMarker';
+import MapLibreUserLocationMarker from './markers/MapLibreUserLocationMarker';
+import ZoomControls from './overlays/ZoomControls';
+import MapLegend from './overlays/MapLegend';
+// ===== END NEW MAPLIBRE IMPLEMENTATION =====
 
 function readUrlCoords(): { lat: number; lng: number; zoom: number } {
     if (typeof window === 'undefined') return { lat: 36.21, lng: 57.667, zoom: 18 };
@@ -63,6 +80,8 @@ function MapComponent() {
 
     return (
         <div className="relative w-full h-full">
+            {/* ===== OLD LEAFLET IMPLEMENTATION ===== */}
+            {/*
             <MapContainer
                 center={[initialCoords.current.lat, initialCoords.current.lng]}
                 zoom={initialCoords.current.zoom}
@@ -83,6 +102,28 @@ function MapComponent() {
                 {userLocation && <UserLocationMarker position={userLocation} />}
                 <ZoomControls onUserLocated={handleUserLocated} />
             </MapContainer>
+            */}
+            {/* ===== END OLD LEAFLET IMPLEMENTATION ===== */}
+
+            {/* ===== NEW MAPLIBRE IMPLEMENTATION ===== */}
+            <MapLibreProvider
+                center={[initialCoords.current.lat, initialCoords.current.lng]}
+                zoom={initialCoords.current.zoom}
+            >
+                <MapLibreBaseTileLayer />
+                <MapLibreMapStateManager />
+
+                {isLayerActive('NosaziLayer') && (
+                    <MapLibreNosaziLayer onLoadingChange={setIsLoadingNosazi} />
+                )}
+                {isLayerActive('KoocheLayer') && <MapLibreKoocheLayer />}
+                {isLayerActive('MokebLayer') && <MapLibreMokebLayer />}
+
+                <MapLibrePositionMarker />
+                {userLocation && <MapLibreUserLocationMarker position={userLocation} />}
+                <ZoomControls onUserLocated={handleUserLocated} />
+            </MapLibreProvider>
+            {/* ===== END NEW MAPLIBRE IMPLEMENTATION ===== */}
 
             <MapLegend />
 
