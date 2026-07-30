@@ -29,14 +29,17 @@ const PositionMarker = dynamic(() => import('./PositionMarker'), { ssr: false })
 // ===== END OLD LEAFLET IMPLEMENTATION =====
 
 // ===== NEW MAPLIBRE IMPLEMENTATION =====
-import { MapLibreProvider } from '@/app/contexts/MapLibreMapContext';
-import MapLibreMapStateManager from './MapLibreMapStateManager';
-import MapLibreBaseTileLayer from './layers/MapLibreBaseTileLayer';
-import MapLibreNosaziLayer from './layers/MapLibreNosaziLayer';
-import MapLibreKoocheLayer from './layers/MapLibreKoocheLayer';
-import MapLibreMokebLayer from './layers/MapLibreMokebLayer';
-import MapLibrePositionMarker from './MapLibrePositionMarker';
-import MapLibreUserLocationMarker from './markers/MapLibreUserLocationMarker';
+const MapLibreProvider = dynamic(
+    () => import('@/app/contexts/MapLibreMapContext').then((mod) => mod.MapLibreProvider),
+    { ssr: false }
+);
+const MapLibreMapStateManager = dynamic(() => import('./MapLibreMapStateManager'), { ssr: false });
+const MapLibreBaseTileLayer = dynamic(() => import('./layers/MapLibreBaseTileLayer'), { ssr: false });
+const MapLibreNosaziLayer = dynamic(() => import('./layers/MapLibreNosaziLayer'), { ssr: false });
+const MapLibreKoocheLayer = dynamic(() => import('./layers/MapLibreKoocheLayer'), { ssr: false });
+const MapLibreMokebLayer = dynamic(() => import('./layers/MapLibreMokebLayer'), { ssr: false });
+const MapLibrePositionMarker = dynamic(() => import('./MapLibrePositionMarker'), { ssr: false });
+const MapLibreUserLocationMarker = dynamic(() => import('./markers/MapLibreUserLocationMarker'), { ssr: false });
 import ZoomControls from './overlays/ZoomControls';
 import MapLegend from './overlays/MapLegend';
 // ===== END NEW MAPLIBRE IMPLEMENTATION =====
