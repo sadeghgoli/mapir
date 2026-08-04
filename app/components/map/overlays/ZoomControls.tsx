@@ -3,9 +3,9 @@
 import {
     Plus, Minus, LocateFixed, Layers3,
     CreditCard, Route, MapPin, Check,
-    ChevronLeft, ChevronDown, Info, X,
+    ChevronLeft, ChevronDown, Info, X, Box, Compass,
 } from 'lucide-react';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useLayer } from '@/app/contexts/LayerContext';
 import type { CategoryTreeNode, GuideEntry } from '@/app/services/layer.service';
 import { useMapLibre } from '@/app/contexts/MapLibreMapContext';
@@ -166,6 +166,65 @@ export default function ZoomControls({ onUserLocated }: { onUserLocated?: (lat: 
         );
     }, [map, onUserLocated]);
 
+    const [is3D, setIs3D] = useState(true);
+    const [bearing, setBearing] = useState(0);
+    const handleToggle3D = useCallback(() => {
+        if (!map) return;
+        setIs3D(prev => {
+            const next = !prev;
+            map.easeTo({ pitch: next ? 60 : 0, bearing: 0, duration: 600 });
+            if (next) {
+                map.dragRotate.enable();
+                map.touchPitch.enable();
+            } else {
+                map.dragRotate.disable();
+                map.touchPitch.disable();
+            }
+            return next;
+        });
+    }, [map]);
+
+    useEffect(() => {
+        if (!map) return;
+        const updateBearing = () => setBearing(map.getBearing());
+        map.on('move', updateBearing);
+        return () => { map.off('move', updateBearing); };
+    }, [map]);
+
+    const rotateRef = useRef<{ cx: number; cy: number; startAngle: number; startBearing: number; moved: boolean } | null>(null);
+
+    const handleRotateStart = useCallback((e: React.PointerEvent) => {
+        if (!map) return;
+        e.preventDefault();
+        const el = e.currentTarget as HTMLElement;
+        el.setPointerCapture(e.pointerId);
+        const rect = el.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        rotateRef.current = {
+            cx,
+            cy,
+            startAngle: Math.atan2(e.clientY - cy, e.clientX - cx) * 180 / Math.PI,
+            startBearing: map.getBearing(),
+            moved: false,
+        };
+    }, [map]);
+
+    const handleRotateMove = useCallback((e: React.PointerEvent) => {
+        if (!map || !rotateRef.current) return;
+        const { cx, cy, startAngle, startBearing } = rotateRef.current;
+        const angle = Math.atan2(e.clientY - cy, e.clientX - cx) * 180 / Math.PI;
+        if (Math.abs(angle - startAngle) > 2) rotateRef.current.moved = true;
+        map.setBearing(startBearing + (angle - startAngle), { duration: 0 });
+    }, [map]);
+
+    const handleRotateEnd = useCallback(() => {
+        if (rotateRef.current && !rotateRef.current.moved && map) {
+            map.easeTo({ bearing: 0, duration: 600 });
+        }
+        rotateRef.current = null;
+    }, [map]);
+
     if (!map) return null;
 
     return (
@@ -185,6 +244,23 @@ export default function ZoomControls({ onUserLocated }: { onUserLocated?: (lat: 
             <button className="bg-white h-10 w-10 rounded-lg flex items-center justify-center shadow-lg hover:bg-gray-100 transition-colors disabled:opacity-50" onClick={handleLocate} disabled={isLocating} title="موقعیت من">
                 <LocateFixed size={20} className={isLocating ? 'animate-pulse' : ''} />
             </button>
+
+            <button className={`bg-white h-10 w-10 rounded-lg flex items-center justify-center shadow-lg transition-colors ${is3D ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-100'}`} onClick={handleToggle3D} title={is3D ? 'حالت دو بعدی' : 'حالت سه بعدی'}>
+                <Box size={20} />
+            </button>
+
+            {is3D && (
+                <button
+                    className="bg-white h-10 w-10 rounded-lg flex items-center justify-center shadow-lg hover:bg-gray-100 transition-colors cursor-grab active:cursor-grabbing touch-none"
+                    onPointerDown={handleRotateStart}
+                    onPointerMove={handleRotateMove}
+                    onPointerUp={handleRotateEnd}
+                    onPointerCancel={handleRotateEnd}
+                    title="بازگشت به شمال (نگه دارید و بکشید تا بچرخد)"
+                >
+                    <Compass size={20} style={{ transform: `rotate(${-bearing}deg)`, transition: 'transform 0.4s ease' }} />
+                </button>
+            )}
 
             <div className="relative">
                 <button className={`bg-white h-10 w-10 rounded-lg flex items-center justify-center shadow-lg transition-colors ${isPanelOpen ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-100'}`} onClick={togglePanel} title="انتخاب لایه">

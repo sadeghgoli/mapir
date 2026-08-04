@@ -65,8 +65,6 @@ export function MapLibreProvider({ children, center, zoom, maxZoom = 18, minZoom
             minZoom,
         });
         
-        instance.addControl(new maplibregl.NavigationControl({ showZoomButtons: false }), 'top-left');
-
         mapRef.current = instance;
         setMap(instance);
 
