@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import * as maplibregl from 'maplibre-gl';
+import { maplibregl } from '@/app/libs/maplibre';
 import { useMapLibre } from '@/app/contexts/MapLibreMapContext';
 import { getFirstPoint, setPoints, removeAllPoints } from '@/app/utils/urlManager';
 import MokebModal from '../overlays/MokebModal';

@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
-import * as maplibregl from 'maplibre-gl';
-import { useMapLibre } from '@/app/contexts/MapLibreMapContext';
+import { maplibregl } from '@/app/libs/maplibre';
+import { useMapLibre, useStyleLoaded } from '@/app/contexts/MapLibreMapContext';
 
 const alleyways = [
     {
@@ -66,9 +66,10 @@ const LABEL_SOURCE = 'kooche-label-source';
 
 export default function MapLibreKoocheLayer() {
     const map = useMapLibre();
+    const styleLoaded = useStyleLoaded();
 
     useEffect(() => {
-        if (!map) return;
+        if (!map || !styleLoaded) return;
 
         const lineFeatures = alleyways.map((alley, i) => ({
             type: 'Feature' as const,
@@ -156,7 +157,7 @@ export default function MapLibreKoocheLayer() {
             if (map.getLayer('kooche-labels')) map.removeLayer('kooche-labels');
             if (map.getSource(LABEL_SOURCE)) map.removeSource(LABEL_SOURCE);
         };
-    }, [map]);
+    }, [map, styleLoaded]);
 
     return null;
 }

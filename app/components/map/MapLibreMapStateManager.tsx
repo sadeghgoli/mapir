@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import * as maplibregl from 'maplibre-gl';
+import { maplibregl } from '@/app/libs/maplibre';
 import { useMapLibre } from '@/app/contexts/MapLibreMapContext';
 import { updateUrl, readCoord, addPoint, removeAllPoints, migrateLegacyParams } from '@/app/utils/urlManager';
 import { useLayer } from '@/app/contexts/LayerContext';

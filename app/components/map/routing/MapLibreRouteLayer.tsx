@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import * as maplibregl from 'maplibre-gl';
-import { useMapLibre } from '@/app/contexts/MapLibreMapContext';
+import { maplibregl } from '@/app/libs/maplibre';
+import { useMapLibre, useStyleLoaded } from '@/app/contexts/MapLibreMapContext';
 import { X } from 'lucide-react';
 
 export interface RouteData {
@@ -35,6 +35,7 @@ const ROUTE_LAYER_ID = 'maplibre-route-line';
 
 export default function MapLibreRouteLayer({ route, onClear }: MapLibreRouteLayerProps) {
     const map = useMapLibre();
+    const styleLoaded = useStyleLoaded();
     const [routeData, setRouteData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -70,7 +71,7 @@ export default function MapLibreRouteLayer({ route, onClear }: MapLibreRouteLaye
     }, [route.origin[0], route.origin[1], route.destination[0], route.destination[1]]);
 
     useEffect(() => {
-        if (!map || !routeData?.routes?.[0]) return;
+        if (!map || !styleLoaded || !routeData?.routes?.[0]) return;
 
         const coords: number[][] = routeData.routes[0].geometry.coordinates;
 
@@ -121,7 +122,7 @@ export default function MapLibreRouteLayer({ route, onClear }: MapLibreRouteLaye
             if (map.getLayer(ROUTE_LAYER_ID)) map.removeLayer(ROUTE_LAYER_ID);
             if (map.getSource(ROUTE_SOURCE_ID)) map.removeSource(ROUTE_SOURCE_ID);
         };
-    }, [map, routeData]);
+    }, [map, styleLoaded, routeData]);
 
     if (loading) {
         return (

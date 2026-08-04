@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import * as maplibregl from 'maplibre-gl';
-import { useMapLibre } from '@/app/contexts/MapLibreMapContext';
+import { maplibregl } from '@/app/libs/maplibre';
+import { useMapLibre, useStyleLoaded } from '@/app/contexts/MapLibreMapContext';
 import NosaziModal from '../overlays/NosaziModal';
 import { getFirstPoint, setPoints, removeAllPoints } from '@/app/utils/urlManager';
 
@@ -82,6 +82,7 @@ interface MapLibreNosaziLayerProps {
 
 export default function MapLibreNosaziLayer({ onLoadingChange }: MapLibreNosaziLayerProps) {
     const map = useMapLibre();
+    const styleLoaded = useStyleLoaded();
     const [loading, setLoading] = useState(false);
     const abortRef = useRef<AbortController | null>(null);
     const initRef = useRef(false);
@@ -449,7 +450,7 @@ export default function MapLibreNosaziLayer({ onLoadingChange }: MapLibreNosaziL
     };
 
     useEffect(() => {
-        if (!map || initRef.current) return;
+        if (!map || !styleLoaded || initRef.current) return;
         initRef.current = true;
 
         map.addSource(SOURCE_ID, {
@@ -553,13 +554,13 @@ export default function MapLibreNosaziLayer({ onLoadingChange }: MapLibreNosaziL
             if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
             initRef.current = false;
         };
-    }, [map]);
+    }, [map, styleLoaded]);
 
     useEffect(() => {
-        if (map && initRef.current) {
+        if (map && styleLoaded && initRef.current) {
             loadData();
         }
-    }, [map]);
+    }, [map, styleLoaded]);
 
     useEffect(() => {
         const tryOpenFromUrl = async () => {

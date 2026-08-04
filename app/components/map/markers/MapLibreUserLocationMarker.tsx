@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import * as maplibregl from 'maplibre-gl';
-import { useMapLibre } from '@/app/contexts/MapLibreMapContext';
+import { maplibregl } from '@/app/libs/maplibre';
+import { useMapLibre, useStyleLoaded } from '@/app/contexts/MapLibreMapContext';
 
 interface MapLibreUserLocationMarkerProps {
     position: [number, number];
@@ -10,12 +10,13 @@ interface MapLibreUserLocationMarkerProps {
 
 export default function MapLibreUserLocationMarker({ position }: MapLibreUserLocationMarkerProps) {
     const map = useMapLibre();
+    const styleLoaded = useStyleLoaded();
     const sourceId = 'user-location-source';
     const outerCircleId = 'user-location-outer';
     const innerCircleId = 'user-location-inner';
 
     useEffect(() => {
-        if (!map) return;
+        if (!map || !styleLoaded) return;
         if (!map.getSource(sourceId)) {
             map.addSource(sourceId, {
                 type: 'geojson',
@@ -56,7 +57,7 @@ export default function MapLibreUserLocationMarker({ position }: MapLibreUserLoc
             if (map.getLayer(outerCircleId)) map.removeLayer(outerCircleId);
             if (map.getSource(sourceId)) map.removeSource(sourceId);
         };
-    }, [map]);
+    }, [map, styleLoaded]);
 
     useEffect(() => {
         if (!map || !map.getSource(sourceId)) return;

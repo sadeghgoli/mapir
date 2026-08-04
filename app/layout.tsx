@@ -25,6 +25,9 @@ export default function RootLayout({
 }>) {
     return (
         <html lang="fa" dir={"rtl"}>
+        <head>
+            <link rel="stylesheet" href="/js/maplibre-gl.min.css" />
+        </head>
         <body className={`antialiased`}>
         <Suspense fallback={<div>در حال بارگذاری احراز هویت...</div>}>
         <AuthProvider>
@@ -35,6 +38,7 @@ export default function RootLayout({
         </AuthProvider>
         </Suspense>
 
+        <script src="/js/maplibre-gl.min.js" defer />
         </body>
         </html>
     );
