@@ -103,3 +103,6 @@ body {
   animation: fadeIn 0.2s ease-out;
 }
 
+.maplibregl-popup-close-button {
+  padding: 3px 10px;
+}
