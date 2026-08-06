@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { maplibregl } from '@/app/libs/maplibre';
 import { useMapLibre, useStyleLoaded } from '@/app/contexts/MapLibreMapContext';
 import NosaziModal from '../overlays/NosaziModal';
 import { getFirstPoint, setPoints, removeAllPoints } from '@/app/utils/urlManager';
+import { getCachedNosaziData, setCachedNosaziData } from '@/app/utils/nosaziCache';
 
 const SOURCE_ID = 'nosazi-data';
 const FILL_LAYER_ID = 'nosazi-fill';
@@ -75,6 +76,16 @@ const formatCodeForDisplay = (code: string): string => {
 };
 
 const featuresCache = new Map<string, any>();
+
+const codeNosaziProp = (feature: any): string | null => {
+    const props = feature.properties || {};
+    if (props.name && props.name !== "0" && props.name !== "") return 'name';
+    if (props.Code_nosaz && props.Code_nosaz !== "0" && props.Code_nosaz !== "") return 'Code_nosaz';
+    if (props.code && props.code !== "0" && props.code !== "") return 'code';
+    if (props.codeN && props.codeN !== "0" && props.codeN !== "") return 'codeN';
+    if (props.Code && props.Code !== "0" && props.Code !== "") return 'Code';
+    return null;
+};
 
 interface MapLibreNosaziLayerProps {
     onLoadingChange?: (isLoading: boolean) => void;
@@ -355,6 +366,44 @@ export default function MapLibreNosaziLayer({ onLoadingChange }: MapLibreNosaziL
         }
     };
 
+    const applyFeaturesData = useCallback((data: any) => {
+        if (!map) return;
+        if (!data?.features?.length) {
+            const src = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource;
+            if (src) src.setData({ type: 'FeatureCollection', features: [] });
+            featuresCache.clear();
+            return;
+        }
+
+        const enrichedFeatures = data.features.map((feature: any) => {
+            const info = extractFeatureInfo(feature);
+            featuresCache.set(info.nosaziCode, info);
+            const propKey = codeNosaziProp(feature) || 'code_nosazi';
+            return {
+                ...feature,
+                properties: {
+                    ...feature.properties,
+                    code_nosazi: info.nosaziCode,
+                },
+            };
+        });
+
+        const src = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource;
+        if (src) {
+            src.setData({ type: 'FeatureCollection', features: enrichedFeatures });
+        }
+
+        if (urlPointValue && !isModalOpenRef.current && featuresCache.has(urlPointValue)) {
+            setTimeout(() => {
+                if (!isModalOpenRef.current && featuresCache.has(urlPointValue)) {
+                    const info = featuresCache.get(urlPointValue);
+                    handleFeatureClick(info, true);
+                    highlightFeature(info.nosaziCode);
+                }
+            }, 300);
+        }
+    }, [map, urlPointValue]);
+
     const loadData = async () => {
         if (!map) return;
 
@@ -371,7 +420,18 @@ export default function MapLibreNosaziLayer({ onLoadingChange }: MapLibreNosaziL
         }
 
         const bounds = map.getBounds();
-        const url = `/api/sabzevar/Sabzevar/Nosazi?minx=${bounds.getWest()}&miny=${bounds.getSouth()}&maxx=${bounds.getEast()}&maxy=${bounds.getNorth()}&zoom=${currentZoom}&vcode=f0b4db73-94fb-42c5-adda-857485a90745`;
+        const minx = bounds.getWest();
+        const miny = bounds.getSouth();
+        const maxx = bounds.getEast();
+        const maxy = bounds.getNorth();
+
+        const cachedData = getCachedNosaziData(minx, miny, maxx, maxy, currentZoom);
+        if (cachedData) {
+            applyFeaturesData(cachedData);
+            return;
+        }
+
+        const url = `/api/sabzevar/Sabzevar/Nosazi?minx=${minx}&miny=${miny}&maxx=${maxx}&maxy=${maxy}&zoom=${currentZoom}&vcode=f0b4db73-94fb-42c5-adda-857485a90745`;
 
         setLoading(true);
 
@@ -400,46 +460,8 @@ export default function MapLibreNosaziLayer({ onLoadingChange }: MapLibreNosaziL
                 return;
             }
 
-            const codeNosaziProp = (feature: any) => {
-                const props = feature.properties || {};
-                if (props.name && props.name !== "0" && props.name !== "") return 'name';
-                if (props.Code_nosaz && props.Code_nosaz !== "0" && props.Code_nosaz !== "") return 'Code_nosaz';
-                if (props.code && props.code !== "0" && props.code !== "") return 'code';
-                if (props.codeN && props.codeN !== "0" && props.codeN !== "") return 'codeN';
-                if (props.Code && props.Code !== "0" && props.Code !== "") return 'Code';
-                return null;
-            };
-
-            const enrichedFeatures = data.features.map((feature: any) => {
-                const info = extractFeatureInfo(feature);
-                featuresCache.set(info.nosaziCode, info);
-                const propKey = codeNosaziProp(feature) || 'code_nosazi';
-                return {
-                    ...feature,
-                    properties: {
-                        ...feature.properties,
-                        code_nosazi: info.nosaziCode,
-                    },
-                };
-            });
-
-            const src = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource;
-            if (src) {
-                src.setData({
-                    type: 'FeatureCollection',
-                    features: enrichedFeatures,
-                });
-            }
-
-            if (urlPointValue && !isModalOpenRef.current && featuresCache.has(urlPointValue)) {
-                setTimeout(() => {
-                    if (!isModalOpenRef.current && featuresCache.has(urlPointValue)) {
-                        const info = featuresCache.get(urlPointValue);
-                        handleFeatureClick(info, true);
-                        highlightFeature(info.nosaziCode);
-                    }
-                }, 300);
-            }
+            setCachedNosaziData(minx, miny, maxx, maxy, currentZoom, data);
+            applyFeaturesData(data);
         } catch (error: any) {
             if (error.name !== 'AbortError') {
                 console.error('Load error:', error);

@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useMap, useMapEvents } from 'react-leaflet';
 import NosaziModal from '../overlays/NosaziModal';
+import { getFirstPoint, setPoints, removeAllPoints } from '@/app/utils/urlManager';
+import { getCachedNosaziData, setCachedNosaziData } from '@/app/utils/nosaziCache';
 import 'leaflet/dist/leaflet.css';
 
 // هوک سفارشی برای مدیریت URL
@@ -423,6 +425,80 @@ export default function NosaziLayer({ onLoadingChange }: NosaziLayerProps) {
         }
     };
 
+    const applyGeoJsonData = useCallback((data: any) => {
+        if (!L || !map) return;
+        if (!data?.features?.length) {
+            if (geoLayerRef.current) {
+                geoLayerRef.current.remove();
+                geoLayerRef.current = null;
+                layerMap.clear();
+            }
+            return;
+        }
+
+        if (geoLayerRef.current) {
+            geoLayerRef.current.remove();
+            layerMap.clear();
+        }
+
+        geoLayerRef.current = L.geoJSON(data, {
+            style: () => ({
+                color: '#0d6efd',
+                weight: 1,
+                opacity: 0.9
+            }),
+            onEachFeature: (feature: any, layer: any) => {
+                const info = extractFeatureInfo(feature);
+                featuresCache.set(info.nosaziCode, info);
+                layerMap.set(info.nosaziCode, layer);
+
+                layer.on('mouseover', (e: any) => {
+                    layer.setStyle({ color: 'red', weight: 2 });
+                    const containerPoint = map.latLngToContainerPoint(e.latlng);
+                    setTooltipData({
+                        show: true,
+                        x: containerPoint.x,
+                        y: containerPoint.y - 60,
+                        nosaziCode: info.nosaziCode,
+                        address: info.address
+                    });
+                });
+
+                layer.on('mouseout', () => {
+                    if (selectedNosazi?.code !== info.nosaziCode) {
+                        layer.setStyle({ color: '#0d6efd', weight: 1 });
+                    }
+                    setTooltipData(prev => ({ ...prev, show: false }));
+                });
+
+                layer.on('click', (e: any) => {
+                    L.DomEvent.stopPropagation(e);
+                    handleFeatureClick(info, true);
+                    highlightFeature(info.nosaziCode);
+                });
+            },
+            pointToLayer: (feature: any, latlng: any) => {
+                return L.circleMarker(latlng, {
+                    radius: 6,
+                    color: '#0d6efd',
+                    weight: 1,
+                    fillColor: '#0d6efd',
+                    fillOpacity: 0.9
+                });
+            }
+        }).addTo(map);
+
+        if (urlPointValue && !isModalOpenRef.current && featuresCache.has(urlPointValue)) {
+            setTimeout(() => {
+                if (!isModalOpenRef.current && featuresCache.has(urlPointValue)) {
+                    const info = featuresCache.get(urlPointValue);
+                    handleFeatureClick(info, true);
+                    highlightFeature(info.nosaziCode);
+                }
+            }, 300);
+        }
+    }, [L, map, urlPointValue, selectedNosazi]);
+
     const loadData = async () => {
         if (!L || !map) return;
 
@@ -438,7 +514,18 @@ export default function NosaziLayer({ onLoadingChange }: NosaziLayerProps) {
         }
 
         const bounds = map.getBounds();
-        const url = `/api/sabzevar/Sabzevar/Nosazi?minx=${bounds.getWest()}&miny=${bounds.getSouth()}&maxx=${bounds.getEast()}&maxy=${bounds.getNorth()}&zoom=${currentZoom}&vcode=f0b4db73-94fb-42c5-adda-857485a90745`;
+        const minx = bounds.getWest();
+        const miny = bounds.getSouth();
+        const maxx = bounds.getEast();
+        const maxy = bounds.getNorth();
+
+        const cachedData = getCachedNosaziData(minx, miny, maxx, maxy, Math.round(currentZoom));
+        if (cachedData) {
+            applyGeoJsonData(cachedData);
+            return;
+        }
+
+        const url = `/api/sabzevar/Sabzevar/Nosazi?minx=${minx}&miny=${miny}&maxx=${maxx}&maxy=${maxy}&zoom=${currentZoom}&vcode=f0b4db73-94fb-42c5-adda-857485a90745`;
 
         setLoading(true);
 
@@ -467,68 +554,8 @@ export default function NosaziLayer({ onLoadingChange }: NosaziLayerProps) {
                 return;
             }
 
-            if (geoLayerRef.current) {
-                geoLayerRef.current.remove();
-                layerMap.clear();
-            }
-
-            geoLayerRef.current = L.geoJSON(data, {
-                style: () => ({
-                    color: '#0d6efd',
-                    weight: 1,
-                    opacity: 0.9
-                }),
-                onEachFeature: (feature: any, layer: any) => {
-                    const info = extractFeatureInfo(feature);
-                    featuresCache.set(info.nosaziCode, info);
-                    layerMap.set(info.nosaziCode, layer);
-
-                    layer.on('mouseover', (e: any) => {
-                        layer.setStyle({ color: 'red', weight: 2 });
-                        const containerPoint = map.latLngToContainerPoint(e.latlng);
-                        setTooltipData({
-                            show: true,
-                            x: containerPoint.x,
-                            y: containerPoint.y - 60,
-                            nosaziCode: info.nosaziCode,
-                            address: info.address
-                        });
-                    });
-
-                    layer.on('mouseout', () => {
-                        if (selectedNosazi?.code !== info.nosaziCode) {
-                            layer.setStyle({ color: '#0d6efd', weight: 1 });
-                        }
-                        setTooltipData(prev => ({ ...prev, show: false }));
-                    });
-
-                    layer.on('click', (e: any) => {
-                        L.DomEvent.stopPropagation(e);
-                        handleFeatureClick(info, true);
-                        highlightFeature(info.nosaziCode);
-                    });
-                },
-                pointToLayer: (feature: any, latlng: any) => {
-                    return L.circleMarker(latlng, {
-                        radius: 6,
-                        color: '#0d6efd',
-                        weight: 1,
-                        fillColor: '#0d6efd',
-                        fillOpacity: 0.9
-                    });
-                }
-            }).addTo(map);
-
-            if (urlPointValue && !isModalOpenRef.current && featuresCache.has(urlPointValue)) {
-                setTimeout(() => {
-                    if (!isModalOpenRef.current && featuresCache.has(urlPointValue)) {
-                        const info = featuresCache.get(urlPointValue);
-                        handleFeatureClick(info, true);
-                        highlightFeature(info.nosaziCode);
-                    }
-                }, 300);
-            }
-
+            setCachedNosaziData(minx, miny, maxx, maxy, Math.round(currentZoom), data);
+            applyGeoJsonData(data);
         } catch (error: any) {
             if (error.name !== 'AbortError') {
                 console.error('Load error:', error);
