@@ -131,10 +131,9 @@ function MapComponent() {
             <MapLegend />
 
             {isLoadingNosazi && (
-                <div className="absolute inset-0 flex items-center justify-center z-[2000] bg-black/20 backdrop-blur-sm pointer-events-none">
-                    <div className="bg-white rounded-lg shadow-xl p-4 flex items-center gap-3 pointer-events-auto" dir="rtl">
-                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                        <span className="text-gray-700 font-medium">در حال بارگذاری داده‌های نوسازی...</span>
+                <div className="absolute bottom-4 left-4 z-[2000] pointer-events-none">
+                    <div className="bg-white/90 rounded-full shadow-lg p-2">
+                        <div className="animate-spin rounded-full h-6 w-6 border-[3px] border-gray-200 border-t-blue-600"></div>
                     </div>
                 </div>
             )}
