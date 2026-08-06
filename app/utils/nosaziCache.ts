@@ -133,6 +133,41 @@ export function setCachedNosaziData(
     }
 }
 
+export function getAllCachedNosaziFeatures(): any[] {
+    if (typeof window === 'undefined') return [];
+    const allFeatures: any[] = [];
+    const seenCodes = new Set<string>();
+    const keys = getAllCacheKeys();
+
+    for (const key of keys) {
+        try {
+            const raw = localStorage.getItem(key);
+            if (!raw) continue;
+            const entry: CacheEntry = JSON.parse(raw);
+            if (Date.now() - entry.timestamp > TTL_MS) {
+                localStorage.removeItem(key);
+                continue;
+            }
+            if (entry.data?.features) {
+                for (const feature of entry.data.features) {
+                    const codeKey = feature.properties?.code_nosazi
+                        || feature.properties?.name
+                        || feature.properties?.Code_nosaz
+                        || JSON.stringify(feature.geometry);
+                    if (!seenCodes.has(codeKey)) {
+                        seenCodes.add(codeKey);
+                        allFeatures.push(feature);
+                    }
+                }
+            }
+        } catch {
+            localStorage.removeItem(key);
+        }
+    }
+
+    return allFeatures;
+}
+
 export function clearNosaziCache(): void {
     if (typeof window === 'undefined') return;
     const keys = getAllCacheKeys();

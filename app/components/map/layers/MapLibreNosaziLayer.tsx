@@ -5,7 +5,7 @@ import { maplibregl } from '@/app/libs/maplibre';
 import { useMapLibre, useStyleLoaded } from '@/app/contexts/MapLibreMapContext';
 import NosaziModal from '../overlays/NosaziModal';
 import { getFirstPoint, setPoints, removeAllPoints } from '@/app/utils/urlManager';
-import { getCachedNosaziData, setCachedNosaziData } from '@/app/utils/nosaziCache';
+import { getCachedNosaziData, setCachedNosaziData, getAllCachedNosaziFeatures } from '@/app/utils/nosaziCache';
 
 const SOURCE_ID = 'nosazi-data';
 const FILL_LAYER_ID = 'nosazi-fill';
@@ -76,6 +76,7 @@ const formatCodeForDisplay = (code: string): string => {
 };
 
 const featuresCache = new Map<string, any>();
+const accumulatedFeatures = new Map<string, any>();
 
 const codeNosaziProp = (feature: any): string | null => {
     const props = feature.properties || {};
@@ -129,6 +130,7 @@ export default function MapLibreNosaziLayer({ onLoadingChange }: MapLibreNosaziL
         return () => {
             onLoadingChange?.(false);
             featuresCache.clear();
+            accumulatedFeatures.clear();
             if (abortRef.current) {
                 abortRef.current.abort();
             }
@@ -366,32 +368,33 @@ export default function MapLibreNosaziLayer({ onLoadingChange }: MapLibreNosaziL
         }
     };
 
-    const applyFeaturesData = useCallback((data: any) => {
+    const pushToMap = useCallback(() => {
         if (!map) return;
-        if (!data?.features?.length) {
-            const src = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource;
-            if (src) src.setData({ type: 'FeatureCollection', features: [] });
-            featuresCache.clear();
-            return;
+        const features = Array.from(accumulatedFeatures.values());
+        const src = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource;
+        if (src) {
+            src.setData({ type: 'FeatureCollection', features });
         }
+    }, [map]);
 
-        const enrichedFeatures = data.features.map((feature: any) => {
+    const mergeFeatures = useCallback((data: any) => {
+        if (!data?.features?.length) return;
+
+        for (const feature of data.features) {
             const info = extractFeatureInfo(feature);
             featuresCache.set(info.nosaziCode, info);
             const propKey = codeNosaziProp(feature) || 'code_nosazi';
-            return {
+            const enriched = {
                 ...feature,
                 properties: {
                     ...feature.properties,
                     code_nosazi: info.nosaziCode,
                 },
             };
-        });
-
-        const src = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource;
-        if (src) {
-            src.setData({ type: 'FeatureCollection', features: enrichedFeatures });
+            accumulatedFeatures.set(info.nosaziCode, enriched);
         }
+
+        pushToMap();
 
         if (urlPointValue && !isModalOpenRef.current && featuresCache.has(urlPointValue)) {
             setTimeout(() => {
@@ -402,7 +405,7 @@ export default function MapLibreNosaziLayer({ onLoadingChange }: MapLibreNosaziL
                 }
             }, 300);
         }
-    }, [map, urlPointValue]);
+    }, [map, urlPointValue, pushToMap]);
 
     const loadData = async () => {
         if (!map) return;
@@ -410,12 +413,10 @@ export default function MapLibreNosaziLayer({ onLoadingChange }: MapLibreNosaziL
         const currentZoom = Math.round(map.getZoom());
 
         if (currentZoom < 16) {
-            const src = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource;
-            if (src) {
-                src.setData({ type: 'FeatureCollection', features: [] });
-            }
+            accumulatedFeatures.clear();
             featuresCache.clear();
             highlightedCodeRef.current = null;
+            pushToMap();
             return;
         }
 
@@ -427,7 +428,7 @@ export default function MapLibreNosaziLayer({ onLoadingChange }: MapLibreNosaziL
 
         const cachedData = getCachedNosaziData(minx, miny, maxx, maxy, currentZoom);
         if (cachedData) {
-            applyFeaturesData(cachedData);
+            mergeFeatures(cachedData);
             return;
         }
 
@@ -452,16 +453,11 @@ export default function MapLibreNosaziLayer({ onLoadingChange }: MapLibreNosaziL
             const data = await response.json();
 
             if (!data || !data.features || data.features.length === 0) {
-                const src = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource;
-                if (src) {
-                    src.setData({ type: 'FeatureCollection', features: [] });
-                }
-                featuresCache.clear();
                 return;
             }
 
             setCachedNosaziData(minx, miny, maxx, maxy, currentZoom, data);
-            applyFeaturesData(data);
+            mergeFeatures(data);
         } catch (error: any) {
             if (error.name !== 'AbortError') {
                 console.error('Load error:', error);
@@ -554,6 +550,11 @@ export default function MapLibreNosaziLayer({ onLoadingChange }: MapLibreNosaziL
         map.on('mousemove', FILL_LAYER_ID, handleMouseMove);
         map.on('mouseleave', FILL_LAYER_ID, handleMouseLeave);
         map.on('click', FILL_LAYER_ID, handleLayerClick);
+
+        const cachedFeatures = getAllCachedNosaziFeatures();
+        if (cachedFeatures.length > 0) {
+            mergeFeatures({ features: cachedFeatures });
+        }
 
         const handleMoveEnd = () => {
             loadData();

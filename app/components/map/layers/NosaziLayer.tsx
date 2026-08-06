@@ -4,11 +4,8 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useMap, useMapEvents } from 'react-leaflet';
 import NosaziModal from '../overlays/NosaziModal';
 import { getFirstPoint, setPoints, removeAllPoints } from '@/app/utils/urlManager';
-import { getCachedNosaziData, setCachedNosaziData } from '@/app/utils/nosaziCache';
+import { getCachedNosaziData, setCachedNosaziData, getAllCachedNosaziFeatures } from '@/app/utils/nosaziCache';
 import 'leaflet/dist/leaflet.css';
-
-// هوک سفارشی برای مدیریت URL
-import { getFirstPoint, setPoints, removeAllPoints } from '@/app/utils/urlManager';
 
 function useTollPoint() {
     const [paramValue, setParamValue] = useState<string | null>(null);
@@ -98,6 +95,7 @@ const formatCodeForDisplay = (code: string): string => {
 // کش داده‌های ویژگی‌ها و هندل های لایه
 const featuresCache = new Map<string, any>();
 const layerMap = new Map<string, any>();
+const accumulatedFeatures = new Map<string, any>();
 
 interface NosaziLayerProps {
     onLoadingChange?: (isLoading: boolean) => void;
@@ -105,7 +103,6 @@ interface NosaziLayerProps {
 
 export default function NosaziLayer({ onLoadingChange }: NosaziLayerProps) {
     const map = useMap();
-    const geoLayerRef = useRef<any>(null);
     const [loading, setLoading] = useState(false);
     const [L, setL] = useState<any>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
@@ -144,12 +141,7 @@ export default function NosaziLayer({ onLoadingChange }: NosaziLayerProps) {
     useEffect(() => {
         return () => {
             onLoadingChange?.(false);
-            if (geoLayerRef.current) {
-                geoLayerRef.current.remove();
-                geoLayerRef.current = null;
-            }
-            layerMap.clear();
-            featuresCache.clear();
+            clearAllLeafletLayers();
             if (abortControllerRef.current) {
                 abortControllerRef.current.abort();
             }
@@ -425,23 +417,21 @@ export default function NosaziLayer({ onLoadingChange }: NosaziLayerProps) {
         }
     };
 
-    const applyGeoJsonData = useCallback((data: any) => {
-        if (!L || !map) return;
-        if (!data?.features?.length) {
-            if (geoLayerRef.current) {
-                geoLayerRef.current.remove();
-                geoLayerRef.current = null;
-                layerMap.clear();
-            }
-            return;
-        }
+    const layerGroupsRef = useRef<any[]>([]);
 
-        if (geoLayerRef.current) {
-            geoLayerRef.current.remove();
-            layerMap.clear();
-        }
+    const mergeFeaturesLeaflet = useCallback((data: any) => {
+        if (!L || !map || !data?.features?.length) return;
 
-        geoLayerRef.current = L.geoJSON(data, {
+        const newFeatures = data.features.filter((feature: any) => {
+            const info = extractFeatureInfo(feature);
+            return !accumulatedFeatures.has(info.nosaziCode);
+        });
+
+        if (newFeatures.length === 0) return;
+
+        const newGeoJson = { type: 'FeatureCollection', features: newFeatures };
+
+        const layerGroup = L.geoJSON(newGeoJson, {
             style: () => ({
                 color: '#0d6efd',
                 weight: 1,
@@ -450,6 +440,7 @@ export default function NosaziLayer({ onLoadingChange }: NosaziLayerProps) {
             onEachFeature: (feature: any, layer: any) => {
                 const info = extractFeatureInfo(feature);
                 featuresCache.set(info.nosaziCode, info);
+                accumulatedFeatures.set(info.nosaziCode, feature);
                 layerMap.set(info.nosaziCode, layer);
 
                 layer.on('mouseover', (e: any) => {
@@ -488,6 +479,8 @@ export default function NosaziLayer({ onLoadingChange }: NosaziLayerProps) {
             }
         }).addTo(map);
 
+        layerGroupsRef.current.push(layerGroup);
+
         if (urlPointValue && !isModalOpenRef.current && featuresCache.has(urlPointValue)) {
             setTimeout(() => {
                 if (!isModalOpenRef.current && featuresCache.has(urlPointValue)) {
@@ -499,17 +492,23 @@ export default function NosaziLayer({ onLoadingChange }: NosaziLayerProps) {
         }
     }, [L, map, urlPointValue, selectedNosazi]);
 
+    const clearAllLeafletLayers = useCallback(() => {
+        for (const group of layerGroupsRef.current) {
+            if (group && group.remove) group.remove();
+        }
+        layerGroupsRef.current = [];
+        layerMap.clear();
+        accumulatedFeatures.clear();
+        featuresCache.clear();
+    }, []);
+
     const loadData = async () => {
         if (!L || !map) return;
 
         const currentZoom = map.getZoom();
 
         if (currentZoom < 16) {
-            if (geoLayerRef.current) {
-                geoLayerRef.current.remove();
-                geoLayerRef.current = null;
-                layerMap.clear();
-            }
+            clearAllLeafletLayers();
             return;
         }
 
@@ -521,7 +520,7 @@ export default function NosaziLayer({ onLoadingChange }: NosaziLayerProps) {
 
         const cachedData = getCachedNosaziData(minx, miny, maxx, maxy, Math.round(currentZoom));
         if (cachedData) {
-            applyGeoJsonData(cachedData);
+            mergeFeaturesLeaflet(cachedData);
             return;
         }
 
@@ -546,16 +545,11 @@ export default function NosaziLayer({ onLoadingChange }: NosaziLayerProps) {
             const data = await response.json();
 
             if (!data || !data.features || data.features.length === 0) {
-                if (geoLayerRef.current) {
-                    geoLayerRef.current.remove();
-                    geoLayerRef.current = null;
-                    layerMap.clear();
-                }
                 return;
             }
 
             setCachedNosaziData(minx, miny, maxx, maxy, Math.round(currentZoom), data);
-            applyGeoJsonData(data);
+            mergeFeaturesLeaflet(data);
         } catch (error: any) {
             if (error.name !== 'AbortError') {
                 console.error('Load error:', error);
@@ -581,6 +575,10 @@ export default function NosaziLayer({ onLoadingChange }: NosaziLayerProps) {
 
     useEffect(() => {
         if (map && L) {
+            const cachedFeatures = getAllCachedNosaziFeatures();
+            if (cachedFeatures.length > 0) {
+                mergeFeaturesLeaflet({ features: cachedFeatures });
+            }
             loadData();
         }
     }, [map, L]);
