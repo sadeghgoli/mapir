@@ -63,6 +63,14 @@ export function MapLibreProvider({ children, center, zoom, maxZoom = 18, minZoom
 
             maxZoom,
             minZoom,
+
+            transformRequest: (url: string, resourceType: string) => {
+                if (resourceType === 'Tile') {
+                    const separator = url.includes('?') ? '&' : '?';
+                    return { url: url + separator + 'key=pk_OLH4n87ddaRXbkFXZM_hWn9hTeoKqhRn' };
+                }
+                return { url };
+            },
         });
         
         mapRef.current = instance;
