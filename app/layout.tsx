@@ -8,8 +8,8 @@ import { Suspense } from 'react';
 import VisitTracker from "@/app/components/VisitTracker";
 
 export const metadata: Metadata = {
-    title: "نقشه و خدمات شهر سبزوار",
-    description: "نقشه و خدمات شهر سبزوار",
+    title: "نقشه و خدمات شهر سبزوار | شهرداری سبزوار",
+    description: "نقشه و خدمات شهر سبزوار | شهرداری سبزوار",
     icons: {
         icon: '/images/shahrdari.png',
         shortcut: '/images/shahrdari.png',
