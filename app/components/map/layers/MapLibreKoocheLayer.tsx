@@ -3,34 +3,31 @@
 import { useEffect, useRef } from 'react';
 import { maplibregl } from '@/app/libs/maplibre';
 import { useMapLibre, useStyleLoaded } from '@/app/contexts/MapLibreMapContext';
-import { alleyways, findAlleywayByName, getAlleywayMidpoint } from '@/app/constants/alleyways';
+import { alleyways, findAlleywayByName } from '@/app/constants/alleyways';
 import { getFirstPoint, setPoints } from '@/app/utils/urlManager';
 
-const COLORS = ['#e74c3c', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#2980b9'];
-
-const SOURCE_PREFIX = 'kooche-source-';
-const LAYER_PREFIX = 'kooche-layer-';
-const HIT_PREFIX = 'kooche-hit-';
-const LABEL_SOURCE = 'kooche-label-source';
+const SOURCE_ID = 'kooche-points';
+const CIRCLE_LAYER = 'kooche-circles';
+const CIRCLE_HIT_LAYER = 'kooche-circles-hit';
 const LABEL_LAYER = 'kooche-labels';
+const SELECTED_LAYER = 'kooche-selected';
 
-function fitAlley(map: maplibregl.Map, name: string) {
+const COLOR = '#0F766E';
+const COLOR_SELECTED = '#0D9488';
+const STROKE = '#FFFFFF';
+
+function flyToAlley(map: maplibregl.Map, name: string) {
     const alley = findAlleywayByName(name);
     if (!alley) return;
-
-    const bounds = new maplibregl.LngLatBounds();
-    alley.positions.forEach(([lat, lng]) => bounds.extend([lng, lat]));
-    map.fitBounds(bounds, { padding: 80, maxZoom: 19, duration: 1000 });
+    map.flyTo({ center: [alley.lng, alley.lat], zoom: 19, duration: 900 });
 }
 
-function setAlleyHighlight(map: maplibregl.Map, selectedName: string | null) {
-    alleyways.forEach((_, i) => {
-        const layerId = `${LAYER_PREFIX}${i}`;
-        if (!map.getLayer(layerId)) return;
-        const isSelected = selectedName !== null && alleyways[i].name === selectedName;
-        map.setPaintProperty(layerId, 'line-width', isSelected ? 6 : 3);
-        map.setPaintProperty(layerId, 'line-opacity', isSelected ? 1 : 0.85);
-    });
+function setSelectedFilter(map: maplibregl.Map, selectedName: string | null) {
+    if (!map.getLayer(SELECTED_LAYER)) return;
+    map.setFilter(SELECTED_LAYER, selectedName
+        ? ['==', ['get', 'name'], selectedName]
+        : ['==', ['get', 'name'], '']
+    );
 }
 
 export default function MapLibreKoocheLayer() {
@@ -42,163 +39,154 @@ export default function MapLibreKoocheLayer() {
     useEffect(() => {
         if (!map || !styleLoaded) return;
 
-        const lineFeatures = alleyways.map((alley, i) => ({
+        const features = alleyways.map((alley, i) => ({
             type: 'Feature' as const,
-            properties: { name: alley.name, index: i },
+            properties: {
+                name: alley.name,
+                number: i + 1,
+                label: String(i + 1),
+            },
             geometry: {
-                type: 'LineString' as const,
-                coordinates: alley.positions.map(p => [p[1], p[0]]),
+                type: 'Point' as const,
+                coordinates: [alley.lng, alley.lat],
             },
         }));
 
-        const labelFeatures = alleyways.map((alley) => {
-            const [lat, lng] = getAlleywayMidpoint(alley);
-            return {
-                type: 'Feature' as const,
-                properties: { name: alley.name },
-                geometry: {
-                    type: 'Point' as const,
-                    coordinates: [lng, lat],
-                },
-            };
+        map.addSource(SOURCE_ID, {
+            type: 'geojson',
+            data: {
+                type: 'FeatureCollection',
+                features,
+            },
+        });
+
+        // Large invisible hit area
+        map.addLayer({
+            id: CIRCLE_HIT_LAYER,
+            type: 'circle',
+            source: SOURCE_ID,
+            paint: {
+                'circle-radius': 18,
+                'circle-opacity': 0,
+            },
+        });
+
+        // Soft outer glow
+        map.addLayer({
+            id: 'kooche-glow',
+            type: 'circle',
+            source: SOURCE_ID,
+            paint: {
+                'circle-radius': 14,
+                'circle-color': COLOR,
+                'circle-opacity': 0.18,
+            },
+        });
+
+        // Main marker
+        map.addLayer({
+            id: CIRCLE_LAYER,
+            type: 'circle',
+            source: SOURCE_ID,
+            paint: {
+                'circle-radius': 8,
+                'circle-color': COLOR,
+                'circle-stroke-width': 2.5,
+                'circle-stroke-color': STROKE,
+                'circle-opacity': 0.95,
+            },
+        });
+
+        // Selected ring (hidden until filter matches)
+        map.addLayer({
+            id: SELECTED_LAYER,
+            type: 'circle',
+            source: SOURCE_ID,
+            filter: ['==', ['get', 'name'], ''],
+            paint: {
+                'circle-radius': 13,
+                'circle-color': 'transparent',
+                'circle-stroke-width': 3,
+                'circle-stroke-color': COLOR_SELECTED,
+                'circle-opacity': 1,
+            },
+        });
+
+        // Number + name labels
+        map.addLayer({
+            id: LABEL_LAYER,
+            type: 'symbol',
+            source: SOURCE_ID,
+            layout: {
+                'text-field': ['concat', 'جوانمرد ', ['get', 'label']],
+                'text-size': 11,
+                'text-offset': [0, -1.6],
+                'text-anchor': 'bottom',
+                'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                'text-allow-overlap': false,
+                'text-ignore-placement': false,
+                'symbol-sort-key': ['get', 'number'],
+            },
+            paint: {
+                'text-color': '#134E4A',
+                'text-halo-color': '#FFFFFF',
+                'text-halo-width': 1.8,
+            },
         });
 
         type LayerClickEvent = maplibregl.MapMouseEvent & { features?: maplibregl.MapGeoJSONFeature[] };
-        const clickHandlers: Array<{ layerId: string; handler: (e: LayerClickEvent) => void }> = [];
-        const enterHandlers: Array<{ layerId: string; handler: () => void }> = [];
-        const leaveHandlers: Array<{ layerId: string; handler: () => void }> = [];
 
         const selectAlley = (name: string, fly: boolean) => {
             selectedRef.current = name;
             setPoints('kooche', [name]);
-            setAlleyHighlight(map, name);
-            if (fly) fitAlley(map, name);
+            setSelectedFilter(map, name);
+            if (fly) flyToAlley(map, name);
         };
 
-        lineFeatures.forEach((feature, i) => {
-            const sourceId = `${SOURCE_PREFIX}${i}`;
-            const layerId = `${LAYER_PREFIX}${i}`;
-            const hitId = `${HIT_PREFIX}${i}`;
-            const color = COLORS[i % COLORS.length];
+        const onClick = (e: LayerClickEvent) => {
+            e.originalEvent.stopPropagation();
+            const name = e.features?.[0]?.properties?.name as string | undefined;
+            if (!name) return;
+            selectAlley(name, true);
+        };
+        const onEnter = () => { map.getCanvas().style.cursor = 'pointer'; };
+        const onLeave = () => { map.getCanvas().style.cursor = ''; };
 
-            map.addSource(sourceId, {
-                type: 'geojson',
-                data: feature,
-            });
+        map.on('click', CIRCLE_HIT_LAYER, onClick);
+        map.on('mouseenter', CIRCLE_HIT_LAYER, onEnter);
+        map.on('mouseleave', CIRCLE_HIT_LAYER, onLeave);
 
-            // Wider invisible line for easier clicking
-            map.addLayer({
-                id: hitId,
-                type: 'line',
-                source: sourceId,
-                layout: {
-                    'line-join': 'round',
-                    'line-cap': 'round',
-                },
-                paint: {
-                    'line-color': color,
-                    'line-width': 16,
-                    'line-opacity': 0,
-                },
-            });
-
-            map.addLayer({
-                id: layerId,
-                type: 'line',
-                source: sourceId,
-                layout: {
-                    'line-join': 'round',
-                    'line-cap': 'round',
-                },
-                paint: {
-                    'line-color': color,
-                    'line-width': 3,
-                    'line-opacity': 0.85,
-                    'line-dasharray': [8, 6],
-                },
-            });
-
-            const onClick = (e: LayerClickEvent) => {
-                e.originalEvent.stopPropagation();
-                const name = e.features?.[0]?.properties?.name as string | undefined;
-                if (!name) return;
-                selectAlley(name, true);
-            };
-            const onEnter = () => { map.getCanvas().style.cursor = 'pointer'; };
-            const onLeave = () => { map.getCanvas().style.cursor = ''; };
-
-            map.on('click', hitId, onClick);
-            map.on('mouseenter', hitId, onEnter);
-            map.on('mouseleave', hitId, onLeave);
-
-            clickHandlers.push({ layerId: hitId, handler: onClick });
-            enterHandlers.push({ layerId: hitId, handler: onEnter });
-            leaveHandlers.push({ layerId: hitId, handler: onLeave });
-        });
-
-        if (!map.getSource(LABEL_SOURCE)) {
-            map.addSource(LABEL_SOURCE, {
-                type: 'geojson',
-                data: {
-                    type: 'FeatureCollection',
-                    features: labelFeatures,
-                },
-            });
-
-            map.addLayer({
-                id: LABEL_LAYER,
-                type: 'symbol',
-                source: LABEL_SOURCE,
-                layout: {
-                    'text-field': ['get', 'name'],
-                    'text-size': 12,
-                    'text-offset': [0, -1.5],
-                    'text-anchor': 'bottom',
-                },
-                paint: {
-                    'text-color': '#333',
-                    'text-halo-color': '#fff',
-                    'text-halo-width': 2,
-                },
-            });
-        }
-
-        // Restore selection from URL on first mount
         if (!initDone.current) {
             const urlKooche = getFirstPoint('kooche');
             if (urlKooche && findAlleywayByName(urlKooche)) {
                 initDone.current = true;
                 selectedRef.current = urlKooche;
-                setAlleyHighlight(map, urlKooche);
-                // Jump immediately if camera not already set by lat/lng; otherwise still highlight
+                setSelectedFilter(map, urlKooche);
                 const params = new URLSearchParams(window.location.search);
-                const hasCamera = params.has('lat') && params.has('lng');
-                if (!hasCamera) {
+                if (!(params.has('lat') && params.has('lng'))) {
                     const alley = findAlleywayByName(urlKooche)!;
-                    const bounds = new maplibregl.LngLatBounds();
-                    alley.positions.forEach(([lat, lng]) => bounds.extend([lng, lat]));
-                    map.fitBounds(bounds, { padding: 80, maxZoom: 19, duration: 0 });
+                    map.jumpTo({ center: [alley.lng, alley.lat], zoom: 19 });
                 }
             }
         } else if (selectedRef.current) {
-            setAlleyHighlight(map, selectedRef.current);
+            setSelectedFilter(map, selectedRef.current);
         }
 
         return () => {
-            clickHandlers.forEach(({ layerId, handler }) => map.off('click', layerId, handler));
-            enterHandlers.forEach(({ layerId, handler }) => map.off('mouseenter', layerId, handler));
-            leaveHandlers.forEach(({ layerId, handler }) => map.off('mouseleave', layerId, handler));
+            map.off('click', CIRCLE_HIT_LAYER, onClick);
+            map.off('mouseenter', CIRCLE_HIT_LAYER, onEnter);
+            map.off('mouseleave', CIRCLE_HIT_LAYER, onLeave);
 
-            alleyways.forEach((_, i) => {
-                const sourceId = `${SOURCE_PREFIX}${i}`;
-                const layerId = `${LAYER_PREFIX}${i}`;
-                const hitId = `${HIT_PREFIX}${i}`;
-                if (map.getLayer(hitId)) map.removeLayer(hitId);
-                if (map.getLayer(layerId)) map.removeLayer(layerId);
-                if (map.getSource(sourceId)) map.removeSource(sourceId);
+            [
+                LABEL_LAYER,
+                SELECTED_LAYER,
+                CIRCLE_LAYER,
+                'kooche-glow',
+                CIRCLE_HIT_LAYER,
+            ].forEach(id => {
+                if (map.getLayer(id)) map.removeLayer(id);
             });
-            if (map.getLayer(LABEL_LAYER)) map.removeLayer(LABEL_LAYER);
-            if (map.getSource(LABEL_SOURCE)) map.removeSource(LABEL_SOURCE);
+            if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
         };
     }, [map, styleLoaded]);
 

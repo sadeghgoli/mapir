@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLayer } from '@/app/contexts/LayerContext';
 import { mapController } from '@/app/utils/mapController';
 import { addPoint, removeAllPoints } from '@/app/utils/urlManager';
-import { alleyways, getAlleywayMidpoint } from '@/app/constants/alleyways';
+import { alleyways, getAlleywayPoint } from '@/app/constants/alleyways';
 
 interface MokebItem {
     id: string;
@@ -72,7 +72,7 @@ export default function GeneralSearchBox() {
                 a.name.toLowerCase().includes(lower)
             );
             setResults(filtered.map(a => {
-                const [lat, lng] = getAlleywayMidpoint(a);
+                const [lat, lng] = getAlleywayPoint(a);
                 return { label: a.name, lat, lng, id: a.name };
             }));
             setIsOpen(filtered.length > 0);
