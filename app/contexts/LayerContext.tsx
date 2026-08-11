@@ -111,6 +111,13 @@ export function LayerProvider({ children }: { children: ReactNode }) {
                         fromUrl.push(mokebNode.id);
                     }
                 }
+                if (getFirstPoint('kooche')) {
+                    const koocheNode = findNodeByComponent(nodes, 'KoocheLayer');
+                    if (koocheNode && (!fromUrl || !fromUrl.includes(koocheNode.id))) {
+                        if (!fromUrl) fromUrl = [];
+                        fromUrl.push(koocheNode.id);
+                    }
+                }
                 if (fromUrl !== null) {
                     setActiveLayers(fromUrl);
                 }

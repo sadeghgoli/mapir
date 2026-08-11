@@ -1,72 +1,43 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { maplibregl } from '@/app/libs/maplibre';
 import { useMapLibre, useStyleLoaded } from '@/app/contexts/MapLibreMapContext';
+import { alleyways, findAlleywayByName, getAlleywayMidpoint } from '@/app/constants/alleyways';
+import { getFirstPoint, setPoints } from '@/app/utils/urlManager';
 
-const alleyways = [
-    {
-        name: 'کوچه گلستان',
-        positions: [
-            [36.2120, 57.6650],
-            [36.2115, 57.6660],
-            [36.2110, 57.6670],
-            [36.2105, 57.6680],
-        ] as [number, number][],
-    },
-    {
-        name: 'کوچه بهار',
-        positions: [
-            [36.2110, 57.6660],
-            [36.2115, 57.6650],
-            [36.2125, 57.6640],
-            [36.2130, 57.6635],
-        ] as [number, number][],
-    },
-    {
-        name: 'کوچه سعدی',
-        positions: [
-            [36.2090, 57.6670],
-            [36.2095, 57.6675],
-            [36.2100, 57.6680],
-            [36.2105, 57.6685],
-        ] as [number, number][],
-    },
-    {
-        name: 'کوچه فردوسی',
-        positions: [
-            [36.2105, 57.6660],
-            [36.2110, 57.6655],
-            [36.2115, 57.6650],
-        ] as [number, number][],
-    },
-    {
-        name: 'کوچه مولوی',
-        positions: [
-            [36.2118, 57.6670],
-            [36.2123, 57.6678],
-            [36.2128, 57.6685],
-        ] as [number, number][],
-    },
-    {
-        name: 'کوچه حافظ',
-        positions: [
-            [36.2095, 57.6655],
-            [36.2100, 57.6660],
-            [36.2105, 57.6665],
-        ] as [number, number][],
-    },
-];
-
-const COLORS = ['#e74c3c', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22'];
+const COLORS = ['#e74c3c', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#2980b9'];
 
 const SOURCE_PREFIX = 'kooche-source-';
 const LAYER_PREFIX = 'kooche-layer-';
+const HIT_PREFIX = 'kooche-hit-';
 const LABEL_SOURCE = 'kooche-label-source';
+const LABEL_LAYER = 'kooche-labels';
+
+function fitAlley(map: maplibregl.Map, name: string) {
+    const alley = findAlleywayByName(name);
+    if (!alley) return;
+
+    const bounds = new maplibregl.LngLatBounds();
+    alley.positions.forEach(([lat, lng]) => bounds.extend([lng, lat]));
+    map.fitBounds(bounds, { padding: 80, maxZoom: 19, duration: 1000 });
+}
+
+function setAlleyHighlight(map: maplibregl.Map, selectedName: string | null) {
+    alleyways.forEach((_, i) => {
+        const layerId = `${LAYER_PREFIX}${i}`;
+        if (!map.getLayer(layerId)) return;
+        const isSelected = selectedName !== null && alleyways[i].name === selectedName;
+        map.setPaintProperty(layerId, 'line-width', isSelected ? 6 : 3);
+        map.setPaintProperty(layerId, 'line-opacity', isSelected ? 1 : 0.85);
+    });
+}
 
 export default function MapLibreKoocheLayer() {
     const map = useMapLibre();
     const styleLoaded = useStyleLoaded();
+    const selectedRef = useRef<string | null>(null);
+    const initDone = useRef(false);
 
     useEffect(() => {
         if (!map || !styleLoaded) return;
@@ -80,27 +51,55 @@ export default function MapLibreKoocheLayer() {
             },
         }));
 
-        const labelFeatures = alleyways.map((alley, i) => ({
-            type: 'Feature' as const,
-            properties: { name: alley.name },
-            geometry: {
-                type: 'Point' as const,
-                coordinates: (() => {
-                    const midIdx = Math.floor(alley.positions.length / 2);
-                    const p = alley.positions[midIdx];
-                    return [p[1], p[0]];
-                })(),
-            },
-        }));
+        const labelFeatures = alleyways.map((alley) => {
+            const [lat, lng] = getAlleywayMidpoint(alley);
+            return {
+                type: 'Feature' as const,
+                properties: { name: alley.name },
+                geometry: {
+                    type: 'Point' as const,
+                    coordinates: [lng, lat],
+                },
+            };
+        });
+
+        type LayerClickEvent = maplibregl.MapMouseEvent & { features?: maplibregl.MapGeoJSONFeature[] };
+        const clickHandlers: Array<{ layerId: string; handler: (e: LayerClickEvent) => void }> = [];
+        const enterHandlers: Array<{ layerId: string; handler: () => void }> = [];
+        const leaveHandlers: Array<{ layerId: string; handler: () => void }> = [];
+
+        const selectAlley = (name: string, fly: boolean) => {
+            selectedRef.current = name;
+            setPoints('kooche', [name]);
+            setAlleyHighlight(map, name);
+            if (fly) fitAlley(map, name);
+        };
 
         lineFeatures.forEach((feature, i) => {
             const sourceId = `${SOURCE_PREFIX}${i}`;
             const layerId = `${LAYER_PREFIX}${i}`;
+            const hitId = `${HIT_PREFIX}${i}`;
             const color = COLORS[i % COLORS.length];
 
             map.addSource(sourceId, {
                 type: 'geojson',
                 data: feature,
+            });
+
+            // Wider invisible line for easier clicking
+            map.addLayer({
+                id: hitId,
+                type: 'line',
+                source: sourceId,
+                layout: {
+                    'line-join': 'round',
+                    'line-cap': 'round',
+                },
+                paint: {
+                    'line-color': color,
+                    'line-width': 16,
+                    'line-opacity': 0,
+                },
             });
 
             map.addLayer({
@@ -118,6 +117,23 @@ export default function MapLibreKoocheLayer() {
                     'line-dasharray': [8, 6],
                 },
             });
+
+            const onClick = (e: LayerClickEvent) => {
+                e.originalEvent.stopPropagation();
+                const name = e.features?.[0]?.properties?.name as string | undefined;
+                if (!name) return;
+                selectAlley(name, true);
+            };
+            const onEnter = () => { map.getCanvas().style.cursor = 'pointer'; };
+            const onLeave = () => { map.getCanvas().style.cursor = ''; };
+
+            map.on('click', hitId, onClick);
+            map.on('mouseenter', hitId, onEnter);
+            map.on('mouseleave', hitId, onLeave);
+
+            clickHandlers.push({ layerId: hitId, handler: onClick });
+            enterHandlers.push({ layerId: hitId, handler: onEnter });
+            leaveHandlers.push({ layerId: hitId, handler: onLeave });
         });
 
         if (!map.getSource(LABEL_SOURCE)) {
@@ -130,7 +146,7 @@ export default function MapLibreKoocheLayer() {
             });
 
             map.addLayer({
-                id: 'kooche-labels',
+                id: LABEL_LAYER,
                 type: 'symbol',
                 source: LABEL_SOURCE,
                 layout: {
@@ -147,14 +163,41 @@ export default function MapLibreKoocheLayer() {
             });
         }
 
+        // Restore selection from URL on first mount
+        if (!initDone.current) {
+            const urlKooche = getFirstPoint('kooche');
+            if (urlKooche && findAlleywayByName(urlKooche)) {
+                initDone.current = true;
+                selectedRef.current = urlKooche;
+                setAlleyHighlight(map, urlKooche);
+                // Jump immediately if camera not already set by lat/lng; otherwise still highlight
+                const params = new URLSearchParams(window.location.search);
+                const hasCamera = params.has('lat') && params.has('lng');
+                if (!hasCamera) {
+                    const alley = findAlleywayByName(urlKooche)!;
+                    const bounds = new maplibregl.LngLatBounds();
+                    alley.positions.forEach(([lat, lng]) => bounds.extend([lng, lat]));
+                    map.fitBounds(bounds, { padding: 80, maxZoom: 19, duration: 0 });
+                }
+            }
+        } else if (selectedRef.current) {
+            setAlleyHighlight(map, selectedRef.current);
+        }
+
         return () => {
+            clickHandlers.forEach(({ layerId, handler }) => map.off('click', layerId, handler));
+            enterHandlers.forEach(({ layerId, handler }) => map.off('mouseenter', layerId, handler));
+            leaveHandlers.forEach(({ layerId, handler }) => map.off('mouseleave', layerId, handler));
+
             alleyways.forEach((_, i) => {
                 const sourceId = `${SOURCE_PREFIX}${i}`;
                 const layerId = `${LAYER_PREFIX}${i}`;
+                const hitId = `${HIT_PREFIX}${i}`;
+                if (map.getLayer(hitId)) map.removeLayer(hitId);
                 if (map.getLayer(layerId)) map.removeLayer(layerId);
                 if (map.getSource(sourceId)) map.removeSource(sourceId);
             });
-            if (map.getLayer('kooche-labels')) map.removeLayer('kooche-labels');
+            if (map.getLayer(LABEL_LAYER)) map.removeLayer(LABEL_LAYER);
             if (map.getSource(LABEL_SOURCE)) map.removeSource(LABEL_SOURCE);
         };
     }, [map, styleLoaded]);

@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLayer } from '@/app/contexts/LayerContext';
 import { mapController } from '@/app/utils/mapController';
-import { addPoint, removeAllPoints, getPointsByLayer } from '@/app/utils/urlManager';
+import { addPoint, removeAllPoints } from '@/app/utils/urlManager';
+import { alleyways, getAlleywayMidpoint } from '@/app/constants/alleyways';
 
 interface MokebItem {
     id: string;
@@ -12,20 +13,6 @@ interface MokebItem {
     longitude: number;
     categoryName?: string;
 }
-
-interface Alleyway {
-    name: string;
-    positions: [number, number][];
-}
-
-const alleyways: Alleyway[] = [
-    { name: 'کوچه گلستان', positions: [[36.2120, 57.6650], [36.2115, 57.6660], [36.2110, 57.6670], [36.2105, 57.6680]] },
-    { name: 'کوچه بهار', positions: [[36.2110, 57.6660], [36.2115, 57.6650], [36.2125, 57.6640], [36.2130, 57.6635]] },
-    { name: 'کوچه سعدی', positions: [[36.2090, 57.6670], [36.2095, 57.6675], [36.2100, 57.6680], [36.2105, 57.6685]] },
-    { name: 'کوچه فردوسی', positions: [[36.2105, 57.6660], [36.2110, 57.6655], [36.2115, 57.6650]] },
-    { name: 'کوچه مولوی', positions: [[36.2118, 57.6670], [36.2123, 57.6678], [36.2128, 57.6685]] },
-    { name: 'کوچه حافظ', positions: [[36.2095, 57.6655], [36.2100, 57.6660], [36.2105, 57.6665]] },
-];
 
 export default function GeneralSearchBox() {
     const { activeLayers, availableLayers } = useLayer();
@@ -85,8 +72,8 @@ export default function GeneralSearchBox() {
                 a.name.toLowerCase().includes(lower)
             );
             setResults(filtered.map(a => {
-                const mid = a.positions[Math.floor(a.positions.length / 2)];
-                return { label: a.name, lat: mid[0], lng: mid[1], id: a.name };
+                const [lat, lng] = getAlleywayMidpoint(a);
+                return { label: a.name, lat, lng, id: a.name };
             }));
             setIsOpen(filtered.length > 0);
         }
