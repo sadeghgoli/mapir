@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useLayer } from '@/app/contexts/LayerContext';
+import { NOSAZI_LAYER_ID, NOSAZI_DEFAULT_ZOOM, NOSAZI_MIN_LOAD_ZOOM } from '@/app/constants/layers';
 
 // ===== OLD LEAFLET IMPLEMENTATION =====
 /*
@@ -49,11 +50,19 @@ function readUrlCoords(): { lat: number; lng: number; zoom: number } {
     const params = new URLSearchParams(window.location.search);
     const lat = parseFloat(params.get('lat') || '');
     const lng = parseFloat(params.get('lng') || '');
-    const zoom = parseInt(params.get('zoom') || '');
+    let zoom = parseInt(params.get('zoom') || '');
+    const layers = (params.get('layers') || '').split(',').filter(Boolean);
+    const hasNosazi = layers.includes(NOSAZI_LAYER_ID);
+
+    // با لایه عوارض، زوم باید برای لود داده کافی باشد
+    if (hasNosazi && (isNaN(zoom) || zoom < NOSAZI_MIN_LOAD_ZOOM)) {
+        zoom = NOSAZI_DEFAULT_ZOOM;
+    }
+
     return {
         lat: !isNaN(lat) && lat >= -90 && lat <= 90 ? lat : 36.21,
         lng: !isNaN(lng) && lng >= -180 && lng <= 180 ? lng : 57.667,
-        zoom: !isNaN(zoom) && zoom >= 1 && zoom <= 20 ? zoom : 18,
+        zoom: !isNaN(zoom) && zoom >= 1 && zoom <= 20 ? zoom : NOSAZI_DEFAULT_ZOOM,
     };
 }
 

@@ -3,15 +3,27 @@
 import { useEffect, useRef } from 'react';
 import { maplibregl } from '@/app/libs/maplibre';
 import { useMapLibre } from '@/app/contexts/MapLibreMapContext';
-import { updateUrl, readCoord, addPoint, removeAllPoints, migrateLegacyParams, getIdParam } from '@/app/utils/urlManager';
+import { updateUrl, readCoord, addPoint, removeAllPoints, migrateLegacyParams, getIdParam, getUrlParams } from '@/app/utils/urlManager';
 import { useLayer } from '@/app/contexts/LayerContext';
 import { mapController } from '@/app/utils/mapController';
+import { NOSAZI_LAYER_ID, NOSAZI_DEFAULT_ZOOM, NOSAZI_MIN_LOAD_ZOOM } from '@/app/constants/layers';
 
 const DEFAULT_LAT = 36.21;
 const DEFAULT_LNG = 57.667;
 const DEFAULT_ZOOM = 18;
 
 const KOCHE_HIT_LAYER = 'kooche-circles-hit';
+
+function resolveInitialZoom(): number {
+    const params = getUrlParams();
+    const layers = (params.layers || '').split(',').filter(Boolean);
+    const hasNosazi = layers.includes(NOSAZI_LAYER_ID);
+    let zoom = readCoord('zoom', DEFAULT_ZOOM);
+    if (hasNosazi && zoom < NOSAZI_MIN_LOAD_ZOOM) {
+        return NOSAZI_DEFAULT_ZOOM;
+    }
+    return zoom;
+}
 
 export default function MapLibreMapStateManager() {
     const map = useMapLibre();
@@ -28,7 +40,7 @@ export default function MapLibreMapStateManager() {
 
         const lat = readCoord('lat', DEFAULT_LAT);
         const lng = readCoord('lng', DEFAULT_LNG);
-        const zoom = readCoord('zoom', DEFAULT_ZOOM);
+        const zoom = resolveInitialZoom();
         const center = map.getCenter();
         const currentZoom = map.getZoom();
 

@@ -6,6 +6,7 @@ import { useMapLibre, useStyleLoaded } from '@/app/contexts/MapLibreMapContext';
 import NosaziModal from '../overlays/NosaziModal';
 import { getFirstPoint, setPoints, removeAllPoints } from '@/app/utils/urlManager';
 import { getCachedNosaziData, setCachedNosaziData, getAllCachedNosaziFeatures } from '@/app/utils/nosaziCache';
+import { NOSAZI_DEFAULT_ZOOM, NOSAZI_MIN_LOAD_ZOOM } from '@/app/constants/layers';
 
 const SOURCE_ID = 'nosazi-data';
 const FILL_LAYER_ID = 'nosazi-fill';
@@ -412,7 +413,7 @@ export default function MapLibreNosaziLayer({ onLoadingChange }: MapLibreNosaziL
 
         const currentZoom = Math.round(map.getZoom());
 
-        if (currentZoom < 16) {
+        if (currentZoom < NOSAZI_MIN_LOAD_ZOOM) {
             accumulatedFeatures.clear();
             featuresCache.clear();
             highlightedCodeRef.current = null;
@@ -581,7 +582,13 @@ export default function MapLibreNosaziLayer({ onLoadingChange }: MapLibreNosaziL
 
     useEffect(() => {
         if (map && styleLoaded && initRef.current) {
-            loadData();
+            // با روشن شدن لایه عوارض، زوم پیش‌فرض ۱۸ تا پلیگان‌ها لود شوند
+            if (map.getZoom() < NOSAZI_DEFAULT_ZOOM) {
+                map.easeTo({ zoom: NOSAZI_DEFAULT_ZOOM, duration: 500 });
+                // loadData روی moveend صدا زده می‌شود
+            } else {
+                loadData();
+            }
         }
     }, [map, styleLoaded]);
 
