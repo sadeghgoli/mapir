@@ -51,7 +51,7 @@ export function readCoord(param: string, fallback: number): number {
 //   p=mokeb:id123
 //   p=toll:1-23-456-789-01-23-45
 //   p=marker:36.21,57.667;mokeb:id123
-// Kooche uses dedicated param: kooche=<uuid>
+// Kooche share uses dedicated param: id=<uuid>
 
 function parsePoints(raw: string): { layer: string; value: string }[] {
     if (!raw) return [];
@@ -83,12 +83,15 @@ export function getFirstPoint(layer: string): string | null {
     return vals.length > 0 ? vals[0] : null;
 }
 
-export function getKoocheId(): string | null {
+/** Selected feature id from URL (?id=uuid) */
+export function getIdParam(): string | null {
     if (typeof window === 'undefined') return null;
     const params = new URLSearchParams(window.location.search);
-    const direct = params.get('kooche');
+    const direct = params.get('id');
     if (direct) return direct;
-    // legacy: p=kooche:uuid
+    // legacy aliases
+    const oldKooche = params.get('kooche');
+    if (oldKooche) return oldKooche;
     return getFirstPoint('kooche');
 }
 
@@ -100,10 +103,11 @@ export function setPoints(layer: string, values: string[], method: 'replace' | '
     updateUrl({ p: raw || null }, method);
 }
 
-/** Short shareable URL: ?layers=...&kooche=<id> */
-export function setKoocheShareUrl(id: string, method: 'replace' | 'push' = 'replace') {
+/** Short shareable URL: ?layers=...&id=<uuid> */
+export function setIdParam(id: string, method: 'replace' | 'push' = 'replace') {
     updateUrl({
-        kooche: id,
+        id,
+        kooche: null,
         p: null,
         lat: null,
         lng: null,
@@ -111,9 +115,10 @@ export function setKoocheShareUrl(id: string, method: 'replace' | 'push' = 'repl
     }, method);
 }
 
-export function clearKoocheUrl(method: 'replace' | 'push' = 'replace') {
+export function clearIdParam(method: 'replace' | 'push' = 'replace') {
     const withoutKoocheInP = getAllPoints().filter(p => p.layer !== 'kooche');
     updateUrl({
+        id: null,
         kooche: null,
         p: serializePoints(withoutKoocheInP) || null,
     }, method);
@@ -171,13 +176,18 @@ export function migrateLegacyParams() {
         needsMigrate = true;
     }
 
-    // p=kooche:uuid → kooche=uuid
-    const legacyKooche = getFirstPoint('kooche');
-    if (legacyKooche && !params.get('kooche')) {
-        const withoutKoocheInP = getAllPoints().filter(p => p.layer !== 'kooche');
-        updates.kooche = legacyKooche;
-        updates.p = serializePoints(withoutKoocheInP) || null;
-        needsMigrate = true;
+    // kooche=uuid or p=kooche:uuid → id=uuid
+    if (!params.get('id')) {
+        const legacy =
+            params.get('kooche') ||
+            getFirstPoint('kooche');
+        if (legacy) {
+            const withoutKoocheInP = getAllPoints().filter(p => p.layer !== 'kooche');
+            updates.id = legacy;
+            updates.kooche = null;
+            updates.p = serializePoints(withoutKoocheInP) || null;
+            needsMigrate = true;
+        }
     }
 
     if (needsMigrate) {

@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { maplibregl } from '@/app/libs/maplibre';
 import { useMapLibre, useStyleLoaded } from '@/app/contexts/MapLibreMapContext';
 import { alleyways, findAlleywayById } from '@/app/constants/alleyways';
-import { getKoocheId, setKoocheShareUrl } from '@/app/utils/urlManager';
+import { getIdParam, setIdParam } from '@/app/utils/urlManager';
 
 const SOURCE_ID = 'kooche-points';
 const CIRCLE_LAYER = 'kooche-circles';
@@ -135,7 +135,7 @@ export default function MapLibreKoocheLayer() {
 
         const selectAlley = (id: string, fly: boolean) => {
             selectedRef.current = id;
-            setKoocheShareUrl(id);
+            setIdParam(id);
             setSelectedFilter(map, id);
             if (fly) flyToAlley(map, id);
         };
@@ -154,8 +154,8 @@ export default function MapLibreKoocheLayer() {
         map.on('mouseleave', CIRCLE_HIT_LAYER, onLeave);
 
         if (!initDone.current) {
-            const urlKooche = getKoocheId();
-            const alley = urlKooche ? findAlleywayById(urlKooche) : undefined;
+            const urlId = getIdParam();
+            const alley = urlId ? findAlleywayById(urlId) : undefined;
             if (alley) {
                 initDone.current = true;
                 selectedRef.current = alley.id;

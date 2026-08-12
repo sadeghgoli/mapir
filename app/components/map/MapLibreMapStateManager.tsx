@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { maplibregl } from '@/app/libs/maplibre';
 import { useMapLibre } from '@/app/contexts/MapLibreMapContext';
-import { updateUrl, readCoord, addPoint, removeAllPoints, migrateLegacyParams, getKoocheId } from '@/app/utils/urlManager';
+import { updateUrl, readCoord, addPoint, removeAllPoints, migrateLegacyParams, getIdParam } from '@/app/utils/urlManager';
 import { useLayer } from '@/app/contexts/LayerContext';
 import { mapController } from '@/app/utils/mapController';
 
@@ -23,8 +23,8 @@ export default function MapLibreMapStateManager() {
 
         migrateLegacyParams();
 
-        // When opening via kooche id, camera comes from alley data — skip lat/lng jump
-        if (getKoocheId()) return;
+        // When opening via feature id, camera comes from alley data — skip lat/lng jump
+        if (getIdParam()) return;
 
         const lat = readCoord('lat', DEFAULT_LAT);
         const lng = readCoord('lng', DEFAULT_LNG);
@@ -41,8 +41,8 @@ export default function MapLibreMapStateManager() {
         if (!map) return;
 
         const handleMoveEnd = () => {
-            // Keep share URLs short: don't persist camera when a kooche is selected
-            if (getKoocheId()) {
+            // Keep share URLs short: don't persist camera when a feature id is selected
+            if (getIdParam()) {
                 const params = new URLSearchParams(window.location.search);
                 if (params.has('lat') || params.has('lng') || params.has('zoom')) {
                     updateUrl({ lat: null, lng: null, zoom: null });
