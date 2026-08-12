@@ -6,6 +6,22 @@ export function getUrlParams(): Record<string, string> {
     return result;
 }
 
+/** Keep : , ; readable in query values (used by p=marker:...;kooche:...) */
+function encodeQueryValue(value: string): string {
+    return encodeURIComponent(value)
+        .replace(/%3A/gi, ':')
+        .replace(/%2C/gi, ',')
+        .replace(/%3B/gi, ';');
+}
+
+function buildSearch(params: URLSearchParams): string {
+    const parts: string[] = [];
+    params.forEach((value, key) => {
+        parts.push(`${encodeURIComponent(key)}=${encodeQueryValue(value)}`);
+    });
+    return parts.length > 0 ? `?${parts.join('&')}` : '';
+}
+
 export function updateUrl(
     changes: Record<string, string | null>,
     method: 'replace' | 'push' = 'replace'
@@ -19,7 +35,8 @@ export function updateUrl(
             url.searchParams.set(key, value);
         }
     }
-    window.history[method === 'push' ? 'pushState' : 'replaceState']({}, '', url.toString());
+    const next = `${url.pathname}${buildSearch(url.searchParams)}${url.hash}`;
+    window.history[method === 'push' ? 'pushState' : 'replaceState']({}, '', next);
 }
 
 export function readCoord(param: string, fallback: number): number {
@@ -72,6 +89,16 @@ export function setPoints(layer: string, values: string[], method: 'replace' | '
     const newPoints = [...filtered, ...values.map(v => ({ layer, value: v }))];
     const raw = serializePoints(newPoints);
     updateUrl({ p: raw || null }, method);
+}
+
+/** Short shareable URL: only p=kooche:id (clears marker + camera params) */
+export function setKoocheShareUrl(id: string, method: 'replace' | 'push' = 'replace') {
+    updateUrl({
+        p: `kooche:${id}`,
+        lat: null,
+        lng: null,
+        zoom: null,
+    }, method);
 }
 
 export function addPoint(layer: string, value: string, method: 'replace' | 'push' = 'replace') {

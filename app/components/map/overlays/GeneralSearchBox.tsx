@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLayer } from '@/app/contexts/LayerContext';
 import { mapController } from '@/app/utils/mapController';
-import { addPoint, removeAllPoints } from '@/app/utils/urlManager';
+import { addPoint, removeAllPoints, setKoocheShareUrl } from '@/app/utils/urlManager';
 import { alleyways, getAlleywayPoint } from '@/app/constants/alleyways';
 
 interface MokebItem {
@@ -82,8 +82,12 @@ export default function GeneralSearchBox() {
     const handleSelect = useCallback((lat: number, lng: number, layer?: string, id?: string) => {
         mapController.flyTo?.(lat, lng, 18);
         if (layer && id) {
-            removeAllPoints(layer);
-            addPoint(layer, id);
+            if (layer === 'kooche') {
+                setKoocheShareUrl(id);
+            } else {
+                removeAllPoints(layer);
+                addPoint(layer, id);
+            }
         }
         setQuery('');
         setResults([]);

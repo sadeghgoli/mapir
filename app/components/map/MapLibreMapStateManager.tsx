@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { maplibregl } from '@/app/libs/maplibre';
 import { useMapLibre } from '@/app/contexts/MapLibreMapContext';
-import { updateUrl, readCoord, addPoint, removeAllPoints, migrateLegacyParams } from '@/app/utils/urlManager';
+import { updateUrl, readCoord, addPoint, removeAllPoints, migrateLegacyParams, getFirstPoint } from '@/app/utils/urlManager';
 import { useLayer } from '@/app/contexts/LayerContext';
 import { mapController } from '@/app/utils/mapController';
 
@@ -11,16 +11,20 @@ const DEFAULT_LAT = 36.21;
 const DEFAULT_LNG = 57.667;
 const DEFAULT_ZOOM = 18;
 
+const KOCHE_HIT_LAYER = 'kooche-circles-hit';
+
 export default function MapLibreMapStateManager() {
     const map = useMapLibre();
     const { activeLayers } = useLayer();
-    const initDone = useRef(false);
     const popupRef = useRef<maplibregl.Popup | null>(null);
 
     useEffect(() => {
         if (!map) return;
 
         migrateLegacyParams();
+
+        // When opening via kooche id, camera comes from alley data — skip lat/lng jump
+        if (getFirstPoint('kooche')) return;
 
         const lat = readCoord('lat', DEFAULT_LAT);
         const lng = readCoord('lng', DEFAULT_LNG);
@@ -37,6 +41,14 @@ export default function MapLibreMapStateManager() {
         if (!map) return;
 
         const handleMoveEnd = () => {
+            // Keep share URLs short: don't persist camera when a kooche is selected
+            if (getFirstPoint('kooche')) {
+                const params = new URLSearchParams(window.location.search);
+                if (params.has('lat') || params.has('lng') || params.has('zoom')) {
+                    updateUrl({ lat: null, lng: null, zoom: null });
+                }
+                return;
+            }
             const c = map.getCenter();
             updateUrl({
                 lat: c.lat.toFixed(6),
@@ -48,6 +60,12 @@ export default function MapLibreMapStateManager() {
         const handleClick = (e: maplibregl.MapMouseEvent) => {
             const target = e.originalEvent?.target as HTMLElement | null;
             if (target && target.closest('.maplibregl-marker')) return;
+
+            // Don't add marker when clicking a kooche feature
+            if (map.getLayer(KOCHE_HIT_LAYER)) {
+                const hits = map.queryRenderedFeatures(e.point, { layers: [KOCHE_HIT_LAYER] });
+                if (hits.length > 0) return;
+            }
 
             removeAllPoints('marker');
             const latStr = e.lngLat.lat.toFixed(6);

@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { maplibregl } from '@/app/libs/maplibre';
 import { useMapLibre, useStyleLoaded } from '@/app/contexts/MapLibreMapContext';
 import { alleyways, findAlleywayById } from '@/app/constants/alleyways';
-import { getFirstPoint, setPoints } from '@/app/utils/urlManager';
+import { getFirstPoint, setKoocheShareUrl } from '@/app/utils/urlManager';
 
 const SOURCE_ID = 'kooche-points';
 const CIRCLE_LAYER = 'kooche-circles';
@@ -135,7 +135,7 @@ export default function MapLibreKoocheLayer() {
 
         const selectAlley = (id: string, fly: boolean) => {
             selectedRef.current = id;
-            setPoints('kooche', [id]);
+            setKoocheShareUrl(id);
             setSelectedFilter(map, id);
             if (fly) flyToAlley(map, id);
         };
@@ -160,10 +160,8 @@ export default function MapLibreKoocheLayer() {
                 initDone.current = true;
                 selectedRef.current = alley.id;
                 setSelectedFilter(map, alley.id);
-                const params = new URLSearchParams(window.location.search);
-                if (!(params.has('lat') && params.has('lng'))) {
-                    map.jumpTo({ center: [alley.lng, alley.lat], zoom: 19 });
-                }
+                // Always center from id — camera params are not kept in share URLs
+                map.jumpTo({ center: [alley.lng, alley.lat], zoom: 19 });
             }
         } else if (selectedRef.current) {
             setSelectedFilter(map, selectedRef.current);
