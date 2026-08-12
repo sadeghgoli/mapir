@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
-import { updateUrl, getUrlParams, getFirstPoint } from '@/app/utils/urlManager';
+import { updateUrl, getUrlParams, getFirstPoint, getKoocheId } from '@/app/utils/urlManager';
 import { fetchCategoryTree, flattenTree, type CategoryTreeNode, type GuideEntry } from '@/app/services/layer.service';
 
 export interface LayerConfig {
@@ -111,7 +111,7 @@ export function LayerProvider({ children }: { children: ReactNode }) {
                         fromUrl.push(mokebNode.id);
                     }
                 }
-                if (getFirstPoint('kooche')) {
+                if (getKoocheId()) {
                     const koocheNode = findNodeByComponent(nodes, 'KoocheLayer');
                     if (koocheNode && (!fromUrl || !fromUrl.includes(koocheNode.id))) {
                         if (!fromUrl) fromUrl = [];

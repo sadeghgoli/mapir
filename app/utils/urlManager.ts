@@ -6,7 +6,7 @@ export function getUrlParams(): Record<string, string> {
     return result;
 }
 
-/** Keep : , ; readable in query values (used by p=marker:...;kooche:...) */
+/** Keep : , ; readable in query values (used by p=marker:...) */
 function encodeQueryValue(value: string): string {
     return encodeURIComponent(value)
         .replace(/%3A/gi, ':')
@@ -50,8 +50,8 @@ export function readCoord(param: string, fallback: number): number {
 //   p=marker:36.21,57.667
 //   p=mokeb:id123
 //   p=toll:1-23-456-789-01-23-45
-//   p=kooche:56BDA997-0722-4722-883D-B3C9A94AD772
 //   p=marker:36.21,57.667;mokeb:id123
+// Kooche uses dedicated param: kooche=<uuid>
 
 function parsePoints(raw: string): { layer: string; value: string }[] {
     if (!raw) return [];
@@ -83,6 +83,15 @@ export function getFirstPoint(layer: string): string | null {
     return vals.length > 0 ? vals[0] : null;
 }
 
+export function getKoocheId(): string | null {
+    if (typeof window === 'undefined') return null;
+    const params = new URLSearchParams(window.location.search);
+    const direct = params.get('kooche');
+    if (direct) return direct;
+    // legacy: p=kooche:uuid
+    return getFirstPoint('kooche');
+}
+
 export function setPoints(layer: string, values: string[], method: 'replace' | 'push' = 'replace') {
     const all = getAllPoints();
     const filtered = all.filter(p => p.layer !== layer);
@@ -91,13 +100,22 @@ export function setPoints(layer: string, values: string[], method: 'replace' | '
     updateUrl({ p: raw || null }, method);
 }
 
-/** Short shareable URL: only p=kooche:id (clears marker + camera params) */
+/** Short shareable URL: ?layers=...&kooche=<id> */
 export function setKoocheShareUrl(id: string, method: 'replace' | 'push' = 'replace') {
     updateUrl({
-        p: `kooche:${id}`,
+        kooche: id,
+        p: null,
         lat: null,
         lng: null,
         zoom: null,
+    }, method);
+}
+
+export function clearKoocheUrl(method: 'replace' | 'push' = 'replace') {
+    const withoutKoocheInP = getAllPoints().filter(p => p.layer !== 'kooche');
+    updateUrl({
+        kooche: null,
+        p: serializePoints(withoutKoocheInP) || null,
     }, method);
 }
 
@@ -150,6 +168,15 @@ export function migrateLegacyParams() {
         addPoint('marker', `${oldMlat},${oldMlng}`);
         updates.mlat = null;
         updates.mlng = null;
+        needsMigrate = true;
+    }
+
+    // p=kooche:uuid → kooche=uuid
+    const legacyKooche = getFirstPoint('kooche');
+    if (legacyKooche && !params.get('kooche')) {
+        const withoutKoocheInP = getAllPoints().filter(p => p.layer !== 'kooche');
+        updates.kooche = legacyKooche;
+        updates.p = serializePoints(withoutKoocheInP) || null;
         needsMigrate = true;
     }
 
