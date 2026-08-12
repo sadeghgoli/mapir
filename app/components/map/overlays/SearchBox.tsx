@@ -1,14 +1,10 @@
 'use client';
 
-import {
-    HelpCircle,
-    Search, Star,
-} from 'lucide-react';
 import {Tooltip} from "react-tooltip";
 import SearchBox2 from "@/app/components/map/boxes/SearchBox";
 import GeneralSearchBox from './GeneralSearchBox';
+import PlaceSearchBox from './PlaceSearchBox';
 import HelpModal from '../overlays/HelpModal';
-import CoordSearch from './CoordSearch';
 import {useState} from "react";
 import { useLayer } from '@/app/contexts/LayerContext';
 
@@ -24,7 +20,8 @@ export default function SearchBox() {
     const hasMokeb = isLayerActive('MokebLayer');
 
     const showGeneralSearch = (hasKooche || hasMokeb) && !hasToll;
-    const showParcelSearch = !showGeneralSearch;
+    const showParcelSearch = hasToll;
+    const showPlaceSearch = !showParcelSearch && !showGeneralSearch;
 
     return (
         <div
@@ -41,27 +38,8 @@ export default function SearchBox() {
         >
         {showParcelSearch && <SearchBox2/>}
         {showGeneralSearch && <GeneralSearchBox />}
+        {showPlaceSearch && <PlaceSearchBox />}
 
-            {/* <CoordSearch /> */}
-
-            {/*<div  id="star">*/}
-            {/*    <button*/}
-            {/*        className="*/}
-            {/*        w-12*/}
-            {/*        h-12*/}
-            {/*        rounded-lg*/}
-            {/*        bg-white/90*/}
-            {/*        backdrop-blur-md*/}
-            {/*        shadow-lg*/}
-            {/*        flex*/}
-            {/*        items-center*/}
-            {/*        justify-center*/}
-            {/*    "*/}
-            {/*    >*/}
-            {/*        <img src="/images/solar_star-circle-bold-duotone.png" alt=""/>*/}
-            {/*    </button>*/}
-
-            {/*</div>*/}
             <div id="info">
 
                 <button
@@ -84,26 +62,14 @@ export default function SearchBox() {
             <Tooltip
                 anchorSelect="#info"
                 content="راهنما"
-                place="bottom"        // نمایش تولتیپ در سمت پایین
+                place="bottom"
                 style={{
-                    backgroundColor: "#ffffff",  // رنگ پس‌زمینه سفید
-                    color: "#000000",            // رنگ متن سیاه (برای خوانایی بهتر)
+                    backgroundColor: "#ffffff",
+                    color: "#000000",
                     boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
                     fontSize: '10px',
                 }}
             />
-
-            {/*<Tooltip*/}
-            {/*    anchorSelect="#star"*/}
-            {/*    content="مکان های منتخب"*/}
-            {/*    place="bottom"        // نمایش تولتیپ در سمت پایین*/}
-            {/*    style={{*/}
-            {/*        backgroundColor: "#ffffff",  // رنگ پس‌زمینه سفید*/}
-            {/*        color: "#000000",            // رنگ متن سیاه (برای خوانایی بهتر)*/}
-            {/*        boxShadow: "0 2px 4px rgba(0,0,0,0.1)",*/}
-            {/*        fontSize: '10px',*/}
-            {/*    }}*/}
-            {/*/>*/}
 
             <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
         </div>
