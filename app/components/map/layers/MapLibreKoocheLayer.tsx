@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { maplibregl } from '@/app/libs/maplibre';
 import { useMapLibre, useStyleLoaded } from '@/app/contexts/MapLibreMapContext';
-import { alleyways, findAlleywayByName } from '@/app/constants/alleyways';
+import { alleyways, findAlleywayById } from '@/app/constants/alleyways';
 import { getFirstPoint, setPoints } from '@/app/utils/urlManager';
 
 const SOURCE_ID = 'kooche-points';
@@ -16,17 +16,18 @@ const COLOR = '#0F766E';
 const COLOR_SELECTED = '#0D9488';
 const STROKE = '#FFFFFF';
 
-function flyToAlley(map: maplibregl.Map, name: string) {
-    const alley = findAlleywayByName(name);
+function flyToAlley(map: maplibregl.Map, id: string) {
+    const alley = findAlleywayById(id);
     if (!alley) return;
     map.flyTo({ center: [alley.lng, alley.lat], zoom: 19, duration: 900 });
 }
 
-function setSelectedFilter(map: maplibregl.Map, selectedName: string | null) {
+function setSelectedFilter(map: maplibregl.Map, selectedId: string | null) {
     if (!map.getLayer(SELECTED_LAYER)) return;
-    map.setFilter(SELECTED_LAYER, selectedName
-        ? ['==', ['get', 'name'], selectedName]
-        : ['==', ['get', 'name'], '']
+    const alley = selectedId ? findAlleywayById(selectedId) : undefined;
+    map.setFilter(SELECTED_LAYER, alley
+        ? ['==', ['get', 'id'], alley.id]
+        : ['==', ['get', 'id'], '']
     );
 }
 
@@ -42,6 +43,7 @@ export default function MapLibreKoocheLayer() {
         const features = alleyways.map((alley, i) => ({
             type: 'Feature' as const,
             properties: {
+                id: alley.id,
                 name: alley.name,
                 number: i + 1,
                 label: String(i + 1),
@@ -60,7 +62,6 @@ export default function MapLibreKoocheLayer() {
             },
         });
 
-        // Large invisible hit area
         map.addLayer({
             id: CIRCLE_HIT_LAYER,
             type: 'circle',
@@ -71,7 +72,6 @@ export default function MapLibreKoocheLayer() {
             },
         });
 
-        // Soft outer glow
         map.addLayer({
             id: 'kooche-glow',
             type: 'circle',
@@ -83,7 +83,6 @@ export default function MapLibreKoocheLayer() {
             },
         });
 
-        // Main marker
         map.addLayer({
             id: CIRCLE_LAYER,
             type: 'circle',
@@ -97,12 +96,11 @@ export default function MapLibreKoocheLayer() {
             },
         });
 
-        // Selected ring (hidden until filter matches)
         map.addLayer({
             id: SELECTED_LAYER,
             type: 'circle',
             source: SOURCE_ID,
-            filter: ['==', ['get', 'name'], ''],
+            filter: ['==', ['get', 'id'], ''],
             paint: {
                 'circle-radius': 13,
                 'circle-color': 'transparent',
@@ -112,7 +110,6 @@ export default function MapLibreKoocheLayer() {
             },
         });
 
-        // Number + name labels
         map.addLayer({
             id: LABEL_LAYER,
             type: 'symbol',
@@ -136,18 +133,18 @@ export default function MapLibreKoocheLayer() {
 
         type LayerClickEvent = maplibregl.MapMouseEvent & { features?: maplibregl.MapGeoJSONFeature[] };
 
-        const selectAlley = (name: string, fly: boolean) => {
-            selectedRef.current = name;
-            setPoints('kooche', [name]);
-            setSelectedFilter(map, name);
-            if (fly) flyToAlley(map, name);
+        const selectAlley = (id: string, fly: boolean) => {
+            selectedRef.current = id;
+            setPoints('kooche', [id]);
+            setSelectedFilter(map, id);
+            if (fly) flyToAlley(map, id);
         };
 
         const onClick = (e: LayerClickEvent) => {
             e.originalEvent.stopPropagation();
-            const name = e.features?.[0]?.properties?.name as string | undefined;
-            if (!name) return;
-            selectAlley(name, true);
+            const id = e.features?.[0]?.properties?.id as string | undefined;
+            if (!id) return;
+            selectAlley(id, true);
         };
         const onEnter = () => { map.getCanvas().style.cursor = 'pointer'; };
         const onLeave = () => { map.getCanvas().style.cursor = ''; };
@@ -158,13 +155,13 @@ export default function MapLibreKoocheLayer() {
 
         if (!initDone.current) {
             const urlKooche = getFirstPoint('kooche');
-            if (urlKooche && findAlleywayByName(urlKooche)) {
+            const alley = urlKooche ? findAlleywayById(urlKooche) : undefined;
+            if (alley) {
                 initDone.current = true;
-                selectedRef.current = urlKooche;
-                setSelectedFilter(map, urlKooche);
+                selectedRef.current = alley.id;
+                setSelectedFilter(map, alley.id);
                 const params = new URLSearchParams(window.location.search);
                 if (!(params.has('lat') && params.has('lng'))) {
-                    const alley = findAlleywayByName(urlKooche)!;
                     map.jumpTo({ center: [alley.lng, alley.lat], zoom: 19 });
                 }
             }

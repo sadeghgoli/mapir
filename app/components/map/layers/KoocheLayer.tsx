@@ -8,7 +8,7 @@ export default function KoocheLayer() {
         <>
             {alleyways.map((alley) => (
                 <CircleMarker
-                    key={alley.name}
+                    key={alley.id}
                     center={[alley.lat, alley.lng]}
                     radius={8}
                     pathOptions={{

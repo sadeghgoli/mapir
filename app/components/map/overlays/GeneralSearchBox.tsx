@@ -73,7 +73,7 @@ export default function GeneralSearchBox() {
             );
             setResults(filtered.map(a => {
                 const [lat, lng] = getAlleywayPoint(a);
-                return { label: a.name, lat, lng, id: a.name };
+                return { label: a.name, lat, lng, id: a.id };
             }));
             setIsOpen(filtered.length > 0);
         }

@@ -33,7 +33,7 @@ export function readCoord(param: string, fallback: number): number {
 //   p=marker:36.21,57.667
 //   p=mokeb:id123
 //   p=toll:1-23-456-789-01-23-45
-//   p=kooche:جوانمرد+1
+//   p=kooche:56BDA997-0722-4722-883D-B3C9A94AD772
 //   p=marker:36.21,57.667;mokeb:id123
 
 function parsePoints(raw: string): { layer: string; value: string }[] {
