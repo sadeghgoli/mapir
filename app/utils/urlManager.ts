@@ -37,6 +37,7 @@ export function updateUrl(
     }
     const next = `${url.pathname}${buildSearch(url.searchParams)}${url.hash}`;
     window.history[method === 'push' ? 'pushState' : 'replaceState']({}, '', next);
+    window.dispatchEvent(new Event('mapurlchange'));
 }
 
 export function readCoord(param: string, fallback: number): number {
@@ -113,6 +114,14 @@ export function setIdParam(id: string, method: 'replace' | 'push' = 'replace') {
         lng: null,
         zoom: null,
     }, method);
+}
+
+/** لینک کوتاه برای QR / اشتراک‌گذاری نقطه */
+export function buildPointShareUrl(pointId: string, layerId: string): string {
+    const origin = typeof window !== 'undefined'
+        ? window.location.origin
+        : 'https://map.sabzevar.ir';
+    return `${origin}/?layers=${layerId}&id=${pointId}`;
 }
 
 export function clearIdParam(method: 'replace' | 'push' = 'replace') {
