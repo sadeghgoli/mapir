@@ -97,7 +97,7 @@ export default function SelectedPointQr() {
     return (
         <div
             className="
-                absolute bottom-24 right-6 z-[1000]
+                absolute bottom-[180px] right-4 z-[1000]
                 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl
                 border border-gray-100 p-3
                 flex flex-col items-center gap-2
