@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { maplibregl } from '@/app/libs/maplibre';
 import { mapController } from '@/app/utils/mapController';
+import { mapStyleUrl, transformMapRequest } from '@/app/utils/mapGateway';
 
 interface MapLibreMapContextType {
     map: maplibregl.Map | null;
@@ -47,9 +48,15 @@ export function MapLibreProvider({ children, center, zoom, maxZoom = 18, minZoom
             );
         }
 
+        if (!process.env.NEXT_PUBLIC_MAP_API_KEY?.trim()) {
+            console.warn(
+                'NEXT_PUBLIC_MAP_API_KEY is empty. Copy the pk_ key from map-api seed logs into .env.local',
+            );
+        }
+
         const instance = new maplibregl.Map({
             container: mapContainerRef.current,
-            style: 'https://geo.sabzevar.ir:7001/styles/style.json',
+            style: mapStyleUrl(),
             center: [center[1], center[0]],
             zoom,
 
@@ -64,13 +71,8 @@ export function MapLibreProvider({ children, center, zoom, maxZoom = 18, minZoom
             maxZoom,
             minZoom,
 
-            transformRequest: (url: string, resourceType: string) => {
-                if (resourceType === 'Tile') {
-                    const separator = url.includes('?') ? '&' : '?';
-                    return { url: url + separator + 'key=pk_OLH4n87ddaRXbkFXZM_hWn9hTeoKqhRn' };
-                }
-                return { url };
-            },
+            transformRequest: (url: string, resourceType?: string) =>
+                transformMapRequest(url, resourceType),
         });
         
         mapRef.current = instance;
