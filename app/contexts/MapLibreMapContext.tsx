@@ -48,12 +48,6 @@ export function MapLibreProvider({ children, center, zoom, maxZoom = 18, minZoom
             );
         }
 
-        if (!process.env.NEXT_PUBLIC_MAP_API_KEY?.trim()) {
-            console.warn(
-                'NEXT_PUBLIC_MAP_API_KEY is empty. Copy the pk_ key from map-api seed logs into .env.local',
-            );
-        }
-
         const instance = new maplibregl.Map({
             container: mapContainerRef.current,
             style: mapStyleUrl(),

@@ -1,5 +1,7 @@
 const DEFAULT_STYLE_URL =
-  'http://map-gateway.sabzevar.ir:8004/styles/style.json';
+  'https://map-gateway.sabzevar.ir:8004/styles/style.json';
+
+const DEFAULT_API_KEY = 'pk_nPieiislOrRRdfJUxauVU-rI3tqYBPN6';
 
 const LEGACY_TILE_ORIGINS = [
   'https://geo.sabzevar.ir:7001',
@@ -23,14 +25,14 @@ export function mapStyleUrl(): string {
 }
 
 export function mapApiKey(): string {
-  return process.env.NEXT_PUBLIC_MAP_API_KEY?.trim() || '';
+  return process.env.NEXT_PUBLIC_MAP_API_KEY?.trim() || DEFAULT_API_KEY;
 }
 
 export function mapGatewayOrigin(styleUrl = mapStyleUrl()): string {
   try {
     return new URL(styleUrl).origin;
   } catch {
-    return 'http://map-gateway.sabzevar.ir:8004';
+    return 'https://map-gateway.sabzevar.ir:8004';
   }
 }
 
