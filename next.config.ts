@@ -44,6 +44,10 @@ const nextConfig: NextConfig = {
                 source: '/api/layer-guide/:path*',
                 destination: 'https://apiweb-layersonmap.sabzevar.ir:5022/api/:path*',
             },
+            {
+                source: '/gw/:path*',
+                destination: `${process.env.MAP_API_UPSTREAM || 'http://2.180.39.54:7003'}/:path*`,
+            },
         ];
     },
 };

@@ -1,9 +1,9 @@
-const DEFAULT_STYLE_URL =
-  'https://map-gateway.sabzevar.ir:8004/styles/style.json';
-
+const DEFAULT_STYLE_URL = '/gw/styles/style.json';
 const DEFAULT_API_KEY = 'pk_nPieiislOrRRdfJUxauVU-rI3tqYBPN6';
 
-const LEGACY_TILE_ORIGINS = [
+const TILE_ORIGINS = [
+  'https://map-gateway.sabzevar.ir:8004',
+  'http://map-gateway.sabzevar.ir:8004',
   'https://geo.sabzevar.ir:7001',
   'http://geo.sabzevar.ir:7001',
   'https://geo.sabzevar.ir',
@@ -28,18 +28,17 @@ export function mapApiKey(): string {
   return process.env.NEXT_PUBLIC_MAP_API_KEY?.trim() || DEFAULT_API_KEY;
 }
 
-export function mapGatewayOrigin(styleUrl = mapStyleUrl()): string {
-  try {
-    return new URL(styleUrl).origin;
-  } catch {
-    return 'https://map-gateway.sabzevar.ir:8004';
+function gwBase(): string {
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}/gw`;
   }
+  return '/gw';
 }
 
-export function rewriteMapAssetUrl(url: string, gatewayOrigin = mapGatewayOrigin()): string {
-  for (const legacy of LEGACY_TILE_ORIGINS) {
-    if (url.startsWith(legacy)) {
-      return gatewayOrigin + url.slice(legacy.length);
+export function rewriteMapAssetUrl(url: string): string {
+  for (const origin of TILE_ORIGINS) {
+    if (url.startsWith(origin)) {
+      return gwBase() + url.slice(origin.length);
     }
   }
   return url;
@@ -48,7 +47,7 @@ export function rewriteMapAssetUrl(url: string, gatewayOrigin = mapGatewayOrigin
 export function withMapApiKey(url: string, key = mapApiKey()): string {
   if (!key) return url;
   try {
-    const parsed = new URL(url);
+    const parsed = new URL(url, typeof window !== 'undefined' ? window.location.href : 'http://localhost');
     if (
       !parsed.searchParams.has('key') &&
       !parsed.searchParams.has('apikey') &&
