@@ -116,7 +116,7 @@ export function setIdParam(id: string, method: 'replace' | 'push' = 'replace') {
     }, method);
 }
 
-/** لینک کوتاه برای QR / اشتراک‌گذاری نقطه */
+/** لینک کوتاه برای اشتراک‌گذاری نقطه */
 export function buildPointShareUrl(pointId: string, layerId: string): string {
     const origin = typeof window !== 'undefined'
         ? window.location.origin

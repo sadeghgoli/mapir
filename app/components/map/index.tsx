@@ -8,7 +8,7 @@ import UserCard from './overlays/UserCard';
 import BottomToolbar from './overlays/BottomToolbar';
 import ZoomControls from './overlays/ZoomControls';
 import PropertyPopup from './overlays/PropertyPopup';
-import SelectedPointQr from './overlays/SelectedPointQr';
+import SelectedPointPanel from './overlays/SelectedPointPanel';
 
 export default function MapLayout() {
     return (
@@ -26,7 +26,7 @@ export default function MapLayout() {
 
             <PropertyPopup />
 
-            <SelectedPointQr />
+            <SelectedPointPanel />
 
             <BottomToolbar />
         </div>
