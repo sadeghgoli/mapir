@@ -25,14 +25,14 @@
     "iran": {
       "type": "vector",
       "tiles": [
-        "/gw/tiles/iran/{z}/{x}/{y}"
+        "https://geo.sabzevar.ir/tiles/iran/{z}/{x}/{y}"
       ],
       "minzoom": 0,
       "maxzoom": 14
     }
   },
   "sprite": "https://openmaptiles.github.io/osm-bright-gl-style/sprite",
-  "glyphs": "/gw/fonts/{fontstack}/{range}.pbf",
+  "glyphs": "https://geo.sabzevar.ir/fonts/{fontstack}/{range}.pbf",
   "layers": [
     {
       "id": "background",

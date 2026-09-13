@@ -4,8 +4,6 @@ const DEFAULT_API_KEY = 'pk_nPieiislOrRRdfJUxauVU-rI3tqYBPN6';
 const TILE_ORIGINS = [
   'https://map-gateway.sabzevar.ir',
   'http://map-gateway.sabzevar.ir',
-  'https://geo.sabzevar.ir',
-  'http://geo.sabzevar.ir',
 ];
 
 const KEYED_RESOURCE_TYPES = new Set([
@@ -26,6 +24,13 @@ export function mapApiKey(): string {
   return process.env.NEXT_PUBLIC_MAP_API_KEY?.trim() || DEFAULT_API_KEY;
 }
 
+function pageBase(): string {
+  if (typeof window !== 'undefined') {
+    return window.location.href;
+  }
+  return 'http://localhost';
+}
+
 function gwBase(): string {
   if (typeof window !== 'undefined') {
     return `${window.location.origin}/gw`;
@@ -33,12 +38,11 @@ function gwBase(): string {
   return '/gw';
 }
 
-function isGwUrl(url: string): boolean {
+function toAbsoluteUrl(url: string): string {
   try {
-    const parsed = new URL(url, typeof window !== 'undefined' ? window.location.href : 'http://localhost');
-    return parsed.pathname === '/gw' || parsed.pathname.startsWith('/gw/');
+    return new URL(url, pageBase()).toString();
   } catch {
-    return url.includes('/gw/');
+    return url;
   }
 }
 
@@ -54,7 +58,7 @@ export function rewriteMapAssetUrl(url: string): string {
 export function withMapApiKey(url: string, key = mapApiKey()): string {
   if (!key) return url;
   try {
-    const parsed = new URL(url, typeof window !== 'undefined' ? window.location.href : 'http://localhost');
+    const parsed = new URL(url, pageBase());
     if (
       !parsed.searchParams.has('key') &&
       !parsed.searchParams.has('apikey') &&
@@ -73,9 +77,8 @@ export function transformMapRequest(
   url: string,
   resourceType?: string,
 ): { url: string } {
-  const rewritten = rewriteMapAssetUrl(url);
-  // geo tiles/fonts are proxied via /gw and do not use the map-api key
-  if (isGwUrl(rewritten) || rewritten.includes('geo.sabzevar.ir')) {
+  const rewritten = toAbsoluteUrl(rewriteMapAssetUrl(url));
+  if (rewritten.includes('geo.sabzevar.ir') || rewritten.includes('/gw/')) {
     return { url: rewritten };
   }
   if (resourceType && !KEYED_RESOURCE_TYPES.has(resourceType)) {
