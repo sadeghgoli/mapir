@@ -46,7 +46,7 @@ const nextConfig: NextConfig = {
             },
             {
                 source: '/gw/:path*',
-                destination: `${process.env.MAP_API_UPSTREAM || 'http://2.180.39.54:7003'}/:path*`,
+                destination: `${process.env.MAP_API_UPSTREAM || 'http://192.168.1.19:7003'}/:path*`,
             },
         ];
     },
