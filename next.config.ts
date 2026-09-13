@@ -37,10 +37,6 @@ const nextConfig: NextConfig = {
                 destination: `${process.env.OSRM_BASE_URL || 'http://route.runflare.run'}/api/:path*`,
             },
             {
-                source: '/api/map-layers/:path*',
-                destination: `${process.env.LAYER_API_URL || 'http://localhost:5030'}/:path*`,
-            },
-            {
                 source: '/api/layer-guide/:path*',
                 destination: 'https://apiweb-layersonmap.sabzevar.ir:5022/api/:path*',
             },
