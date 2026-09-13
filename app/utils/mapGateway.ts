@@ -2,10 +2,10 @@ const DEFAULT_STYLE_URL = '/gw/styles/style.json';
 const DEFAULT_API_KEY = 'pk_nPieiislOrRRdfJUxauVU-rI3tqYBPN6';
 
 const TILE_ORIGINS = [
-  'https://map-gateway.sabzevar.ir:8004',
-  'http://map-gateway.sabzevar.ir:8004',
-  'https://geo.sabzevar.ir:7001',
-  'http://geo.sabzevar.ir:7001',
+  'https://map-gateway.sabzevar.ir',
+  'http://map-gateway.sabzevar.ir',
+  'https://geo.sabzevar.ir',
+  'http://geo.sabzevar.ir',
   'https://geo.sabzevar.ir',
   'http://geo.sabzevar.ir',
 ];
