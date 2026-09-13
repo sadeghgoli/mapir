@@ -1,11 +1,9 @@
-const DEFAULT_STYLE_URL = '/gw/styles/style.json';
+const DEFAULT_STYLE_URL = '/style.json';
 const DEFAULT_API_KEY = 'pk_nPieiislOrRRdfJUxauVU-rI3tqYBPN6';
 
 const TILE_ORIGINS = [
   'https://map-gateway.sabzevar.ir',
   'http://map-gateway.sabzevar.ir',
-  'https://geo.sabzevar.ir',
-  'http://geo.sabzevar.ir',
   'https://geo.sabzevar.ir',
   'http://geo.sabzevar.ir',
 ];
@@ -33,6 +31,15 @@ function gwBase(): string {
     return `${window.location.origin}/gw`;
   }
   return '/gw';
+}
+
+function isGwUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url, typeof window !== 'undefined' ? window.location.href : 'http://localhost');
+    return parsed.pathname === '/gw' || parsed.pathname.startsWith('/gw/');
+  } catch {
+    return url.includes('/gw/');
+  }
 }
 
 export function rewriteMapAssetUrl(url: string): string {
@@ -67,6 +74,10 @@ export function transformMapRequest(
   resourceType?: string,
 ): { url: string } {
   const rewritten = rewriteMapAssetUrl(url);
+  // geo tiles/fonts are proxied via /gw and do not use the map-api key
+  if (isGwUrl(rewritten) || rewritten.includes('geo.sabzevar.ir')) {
+    return { url: rewritten };
+  }
   if (resourceType && !KEYED_RESOURCE_TYPES.has(resourceType)) {
     return { url: rewritten };
   }
