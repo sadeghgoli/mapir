@@ -7,7 +7,7 @@ const UPSTREAM = process.env.LAYER_API_URL?.trim() || 'https://apiweb-layersonma
 
 async function handle(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
   const { path } = await ctx.params;
-  const targetPath = `/${path.map(encodeURIComponent).join('/')}${req.nextUrl.search}`;
+  const targetPath = `/api/${path.map(encodeURIComponent).join('/')}${req.nextUrl.search}`;
   try {
     const upstream = await proxyToUpstream(req.method, UPSTREAM, targetPath);
     const headers = new Headers();

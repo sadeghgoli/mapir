@@ -3,6 +3,7 @@
 
 import { useEffect, Suspense, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { PAY_API_URL } from '@/app/utils/apiConfig';
 
 function CallbackContent() {
     const searchParams = useSearchParams();
@@ -31,7 +32,7 @@ function CallbackContent() {
 
             try {
                 const token = decodeURIComponent(tokenParam);
-                const API_BASE = 'https://apiweb-payonmap.sabzevar.ir:8446';
+                const API_BASE = PAY_API_URL;
 
                 const response = await fetch(`${API_BASE}/api/auth/me`, {
                     headers: {

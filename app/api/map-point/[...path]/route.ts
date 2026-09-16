@@ -3,7 +3,8 @@ import { proxyToUpstream } from '@/app/utils/upstreamProxy';
 
 export const dynamic = 'force-dynamic';
 
-const UPSTREAM = process.env.LAYER_API_URL?.trim() || 'https://apiweb-layersonmap.sabzevar.ir';
+const UPSTREAM =
+  process.env.LOCATIONS_API_URL?.trim() || 'https://apiweb-locationsmap.sabzevar.ir';
 
 async function handle(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
   const { path } = await ctx.params;
@@ -14,7 +15,7 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ path: string[] 
     if (upstream.contentType) headers.set('content-type', upstream.contentType);
     return new Response(new Uint8Array(upstream.body), { status: upstream.status, headers });
   } catch {
-    return new Response('Layer API upstream unreachable', { status: 502 });
+    return new Response('Locations API upstream unreachable', { status: 502 });
   }
 }
 

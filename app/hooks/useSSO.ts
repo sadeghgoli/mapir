@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { PAY_API_URL } from '@/app/utils/apiConfig';
 
 interface SSOUser {
     id: string;
@@ -26,7 +27,7 @@ interface UseSSOReturn {
     error: string | null;
 }
 
-const SSO_LOGIN_URL = 'https://apiweb-payonmap.sabzevar.ir:8446/api/auth/login';
+const SSO_LOGIN_URL = `${PAY_API_URL}/api/auth/login`;
 const TOKEN_KEY = 'sso_access_token';
 const USER_KEY = 'sso_user';
 
@@ -117,7 +118,7 @@ export function useSSO(): UseSSOReturn {
         localStorage.removeItem(USER_KEY);
 
         // revoke از سرور
-        fetch('https://apiweb-payonmap.sabzevar.ir:8446/api/auth/logout', {
+        fetch(`${PAY_API_URL}/api/auth/logout`, {
             method: 'POST',
             headers: { Authorization: `Bearer ${token}` },
             credentials: 'include'

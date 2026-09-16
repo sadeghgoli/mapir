@@ -29,16 +29,8 @@ const nextConfig: NextConfig = {
                 destination: 'https://tile.openstreetmap.org/:path*',
             },
             {
-                source: '/api/map-point/:path*',
-                destination: 'http://apiweb-locationsmap.sabzevar.ir:5020/:path*',
-            },
-            {
                 source: '/api/osrm/:path*',
                 destination: `${process.env.OSRM_BASE_URL || 'http://route.runflare.run'}/api/:path*`,
-            },
-            {
-                source: '/api/layer-guide/:path*',
-                destination: 'https://apiweb-layersonmap.sabzevar.ir:5022/api/:path*',
             },
         ];
     },

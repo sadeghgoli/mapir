@@ -3,6 +3,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { PAY_API_URL } from '@/app/utils/apiConfig';
 
 interface User {
     id: string;
@@ -27,7 +28,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const API_BASE_URL = 'https://apiweb-payonmap.sabzevar.ir:8446';
+const API_BASE_URL = PAY_API_URL;
 
 const getLocalStorage = (key: string): string | null => {
     if (typeof window === 'undefined') return null;

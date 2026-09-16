@@ -1,5 +1,7 @@
 // services/auth.service.ts
 
+import { PAY_API_URL } from '@/app/utils/apiConfig';
+
 export interface UserInfo {
   id: string;
   name: string;
@@ -22,7 +24,7 @@ export interface UserTokenResponse {
   user: UserInfo;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://apiweb-payonmap.sabzevar.ir:8446';
+const API_BASE_URL = PAY_API_URL;
 
 class AuthService {
   private accessToken: string | null = null;

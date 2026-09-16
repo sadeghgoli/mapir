@@ -3,9 +3,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { X, MapPin, Trash2, Loader2, Star, AlertCircle, Eye } from 'lucide-react';
 import { useAuth } from '@/app/contexts/AuthContext';
-import NosaziModal from './NosaziModal'; // ✅ اضافه کردن import
+import NosaziModal from './NosaziModal';
+import { PAY_API_URL } from '@/app/utils/apiConfig';
 
-const API_BASE_URL = 'https://apiweb-payonmap.sabzevar.ir:8446';
+const API_BASE_URL = PAY_API_URL;
 
 interface Location {
     id: string;

@@ -2,8 +2,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { X, Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import { useAuth } from '@/app/contexts/AuthContext';
+import { PAY_API_URL } from '@/app/utils/apiConfig';
 
-const API_BASE_URL = 'https://apiweb-payonmap.sabzevar.ir:8446';
+const API_BASE_URL = PAY_API_URL;
 
 interface PaymentHistoryItem {
     id: number;
