@@ -1,13 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { Share2, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Download, Share2, X } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { KOCHE_LAYER_ID } from '@/app/constants/layers';
 import { buildPointShareUrl, clearIdParam, getIdParam } from '@/app/utils/urlManager';
 import {
     fetchKoocheMapPoints,
     fetchMapPointById,
+    findMapPointById,
     mapPointShareUrl,
     type MapPoint,
 } from '@/app/services/mapPoint.service';
@@ -15,12 +16,45 @@ import {
 const SHORT_LINK_POLL_MS = 2000;
 const SHORT_LINK_POLL_ATTEMPTS = 5;
 
+function qrFileName(title: string) {
+    const safe = title.replace(/[\\/:*?"<>|]+/g, ' ').trim() || 'kooche';
+    return `${safe}-qr.png`;
+}
+
+function downloadSvgPng(svg: SVGSVGElement, filename: string) {
+    const xml = new XMLSerializer().serializeToString(svg);
+    const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            URL.revokeObjectURL(url);
+            return;
+        }
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(url);
+        const a = document.createElement('a');
+        a.download = filename;
+        a.href = canvas.toDataURL('image/png');
+        a.click();
+    };
+    img.onerror = () => URL.revokeObjectURL(url);
+    img.src = url;
+}
+
 export default function SelectedPointPanel() {
     const [pointId, setPointId] = useState<string | null>(null);
     const [point, setPoint] = useState<MapPoint | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(false);
     const [shareState, setShareState] = useState<'idle' | 'copied' | 'error'>('idle');
+    const qrRef = useRef<SVGSVGElement>(null);
 
     const syncFromUrl = useCallback(() => {
         setPointId(getIdParam());
@@ -60,29 +94,34 @@ export default function SelectedPointPanel() {
         (async () => {
             setLoading(true);
             setError(false);
-            setPoint(null);
             try {
-                const detail = await fetchMapPointById(pointId);
+                const list = await fetchKoocheMapPoints();
                 if (cancelled) return;
-                setPoint(detail);
+                const found = findMapPointById(list, pointId);
+                if (!found) {
+                    setPoint(null);
+                    setError(true);
+                    setLoading(false);
+                    return;
+                }
+                setPoint(found);
                 setLoading(false);
 
-                if (detail.shortVisitLink) return;
+                fetchMapPointById(pointId).catch(() => {});
+
+                if (found.shortVisitLink) return;
 
                 let attempts = 0;
                 const poll = async () => {
                     if (cancelled || attempts >= SHORT_LINK_POLL_ATTEMPTS) return;
                     attempts += 1;
                     try {
-                        const list = await fetchKoocheMapPoints();
-                        const updated = list.find(p => p.id.toLowerCase() === pointId.toLowerCase());
+                        const refreshed = await fetchKoocheMapPoints({ force: true });
+                        const updated = findMapPointById(refreshed, pointId);
                         if (cancelled) return;
-                        if (updated?.shortVisitLink) {
-                            setPoint(prev => prev
-                                ? { ...prev, shortVisitLink: updated.shortVisitLink, visitLink: updated.visitLink }
-                                : updated
-                            );
-                            return;
+                        if (updated) {
+                            setPoint(updated);
+                            if (updated.shortVisitLink) return;
                         }
                     } catch (err) {
                         console.error(err);
@@ -94,6 +133,7 @@ export default function SelectedPointPanel() {
                 console.error(err);
                 if (!cancelled) {
                     setError(true);
+                    setPoint(null);
                     setLoading(false);
                 }
             }
@@ -141,6 +181,12 @@ export default function SelectedPointPanel() {
         window.setTimeout(() => setShareState('idle'), 2000);
     }, [shareUrl, point?.title]);
 
+    const handleDownloadQr = useCallback(() => {
+        const svg = qrRef.current;
+        if (!svg || !point) return;
+        downloadSvgPng(svg, qrFileName(point.title));
+    }, [point]);
+
     if (!pointId) return null;
 
     const shareLabel =
@@ -175,45 +221,74 @@ export default function SelectedPointPanel() {
                 </button>
             </div>
 
-            <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6 py-8">
+            <div className="flex-1 overflow-y-auto px-6 py-6">
                 {loading && (
-                    <div className="animate-spin rounded-full h-10 w-10 border-[3px] border-gray-200 border-t-teal-700" />
+                    <div className="flex justify-center py-12">
+                        <div className="animate-spin rounded-full h-10 w-10 border-[3px] border-gray-200 border-t-teal-700" />
+                    </div>
                 )}
 
                 {!loading && error && (
-                    <p className="text-sm text-gray-500 text-center">اطلاعات این کوچه در دسترس نیست.</p>
+                    <p className="text-sm text-gray-500 text-center py-12">اطلاعات این کوچه در دسترس نیست.</p>
                 )}
 
                 {!loading && !error && point && (
-                    <>
+                    <div className="flex flex-col items-stretch gap-5">
+                        <div className="space-y-3">
+                            <div>
+                                <p className="text-xs text-gray-400 mb-1">نام کوچه</p>
+                                <p className="text-base font-semibold text-gray-800">{point.title}</p>
+                            </div>
+                            {point.address && (
+                                <div>
+                                    <p className="text-xs text-gray-400 mb-1">آدرس</p>
+                                    <p className="text-sm text-gray-700 leading-6">{point.address}</p>
+                                </div>
+                            )}
+                        </div>
+
                         {qrUrl ? (
-                            <div className="bg-white p-3 rounded-2xl border border-gray-100 shadow-sm">
-                                <QRCodeSVG
-                                    value={qrUrl}
-                                    size={220}
-                                    level="M"
-                                    marginSize={1}
-                                    title={point.title}
-                                />
+                            <div className="flex flex-col items-center gap-3">
+                                <div className="bg-white p-3 rounded-2xl border border-gray-100 shadow-sm">
+                                    <QRCodeSVG
+                                        ref={qrRef}
+                                        value={qrUrl}
+                                        size={220}
+                                        level="M"
+                                        marginSize={1}
+                                        title={point.title}
+                                    />
+                                </div>
+                                <a
+                                    href={qrUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    dir="ltr"
+                                    className="text-xs text-teal-700 hover:underline break-all text-center"
+                                >
+                                    {qrUrl}
+                                </a>
+                                <button
+                                    type="button"
+                                    onClick={handleDownloadQr}
+                                    className="
+                                        w-full flex items-center justify-center gap-2
+                                        py-2.5 rounded-xl font-medium text-sm
+                                        border border-teal-700 text-teal-800
+                                        hover:bg-teal-50 transition-colors
+                                    "
+                                >
+                                    <Download size={16} />
+                                    دانلود کد QR
+                                </button>
                             </div>
                         ) : (
-                            <div className="flex flex-col items-center gap-3">
+                            <div className="flex flex-col items-center gap-3 py-6">
                                 <div className="animate-spin rounded-full h-8 w-8 border-[3px] border-gray-200 border-t-teal-700" />
                                 <p className="text-sm text-gray-500">در حال آماده‌سازی لینک کوتاه...</p>
                             </div>
                         )}
-                        {qrUrl && (
-                            <a
-                                href={qrUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                dir="ltr"
-                                className="text-xs text-teal-700 hover:underline break-all text-center"
-                            >
-                                {qrUrl}
-                            </a>
-                        )}
-                    </>
+                    </div>
                 )}
             </div>
 

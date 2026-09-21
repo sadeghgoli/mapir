@@ -1,3 +1,5 @@
+import { KOCHE_LAYER_ID } from '@/app/constants/layers';
+
 const MAP_POINT_BASE = '/api/map-point/api';
 const KOOCHE_CATEGORY_NAME = 'کوچه‌ها';
 const PAGE_SIZE = 50;
@@ -41,6 +43,13 @@ interface ApiItemResponse<T> {
 }
 
 let koocheCategoryIdPromise: Promise<string> | null = null;
+let koochePointsCache: MapPoint[] | null = null;
+let koochePointsInflight: Promise<MapPoint[]> | null = null;
+
+export function findMapPointById(points: MapPoint[], id: string): MapPoint | undefined {
+    const lower = id.toLowerCase();
+    return points.find(p => p.id.toLowerCase() === lower);
+}
 
 export function fetchKoocheCategoryId(): Promise<string> {
     if (!koocheCategoryIdPromise) {
@@ -50,17 +59,16 @@ export function fetchKoocheCategoryId(): Promise<string> {
             const json: ApiListResponse<CategoryItem> = await res.json();
             if (!json.success) throw new Error('API returned success: false');
             const found = json.data.find(c => c.name === KOOCHE_CATEGORY_NAME);
-            if (!found) throw new Error('Kooche category not found');
-            return found.id;
-        })().catch(err => {
-            koocheCategoryIdPromise = null;
-            throw err;
+            return found?.id || KOCHE_LAYER_ID;
+        })().catch(() => {
+            koocheCategoryIdPromise = Promise.resolve(KOCHE_LAYER_ID);
+            return KOCHE_LAYER_ID;
         });
     }
     return koocheCategoryIdPromise;
 }
 
-export async function fetchApprovedMapPoints(categoryId: string): Promise<MapPoint[]> {
+export async function fetchApprovedMapPoints(categoryId?: string): Promise<MapPoint[]> {
     const all: MapPoint[] = [];
     let page = 1;
 
@@ -68,8 +76,8 @@ export async function fetchApprovedMapPoints(categoryId: string): Promise<MapPoi
         const params = new URLSearchParams({
             page: String(page),
             pageSize: String(PAGE_SIZE),
-            categoryId,
         });
+        if (categoryId) params.set('categoryId', categoryId);
         const res = await fetch(`${MAP_POINT_BASE}/MapPoint?${params}`);
         if (!res.ok) throw new Error(`Failed to fetch map points: ${res.status}`);
         const json: ApiListResponse<MapPoint> = await res.json();
@@ -86,9 +94,29 @@ export async function fetchApprovedMapPoints(categoryId: string): Promise<MapPoi
     return all;
 }
 
-export async function fetchKoocheMapPoints(): Promise<MapPoint[]> {
-    const categoryId = await fetchKoocheCategoryId();
-    return fetchApprovedMapPoints(categoryId);
+export async function fetchKoocheMapPoints(options?: { force?: boolean }): Promise<MapPoint[]> {
+    const force = options?.force ?? false;
+    if (!force && koochePointsCache) return koochePointsCache;
+    if (!force && koochePointsInflight) return koochePointsInflight;
+
+    koochePointsInflight = (async () => {
+        const categoryId = await fetchKoocheCategoryId();
+        let data = await fetchApprovedMapPoints(categoryId);
+        if (data.length === 0) {
+            const all = await fetchApprovedMapPoints();
+            const catLower = categoryId.toLowerCase();
+            data = all.filter(p =>
+                p.categoryName === KOOCHE_CATEGORY_NAME ||
+                p.categoryId?.toLowerCase() === catLower
+            );
+        }
+        koochePointsCache = data;
+        return data;
+    })().finally(() => {
+        koochePointsInflight = null;
+    });
+
+    return koochePointsInflight;
 }
 
 export async function fetchMapPointById(id: string): Promise<MapPoint> {
