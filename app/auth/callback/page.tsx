@@ -3,7 +3,9 @@
 
 import { useEffect, Suspense, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { PAY_API_URL } from '@/app/utils/apiConfig';
+import { fetchSsoMe } from '@/app/utils/ssoAuth';
+
+const REFRESH_TOKEN_KEY = 'refreshToken';
 
 function CallbackContent() {
     const searchParams = useSearchParams();
@@ -14,6 +16,7 @@ function CallbackContent() {
     useEffect(() => {
         const handleCallback = async () => {
             const tokenParam = searchParams.get('token');
+            const refreshParam = searchParams.get('refreshToken');
             const errorParam = searchParams.get('error');
             const errorDescription = searchParams.get('error_description');
 
@@ -32,48 +35,35 @@ function CallbackContent() {
 
             try {
                 const token = decodeURIComponent(tokenParam);
-                const API_BASE = PAY_API_URL;
+                const { user } = await fetchSsoMe(token);
 
-                const response = await fetch(`${API_BASE}/api/auth/me`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    }
-                });
-
-                if (!response.ok) {
+                if (!user) {
                     throw new Error('توکن دریافتی معتبر نیست');
                 }
 
-                const result = await response.json();
-                
-                // ✅ استخراج user از result.data یا result مستقیم
-                const userData = result.data || result;
-
-                // ✅ ذخیره با کلید یکسان که AuthContext استفاده می‌کنه
                 localStorage.setItem('token', token);
-                localStorage.setItem('user', JSON.stringify({
-                    id: userData.id,
-                    name: userData.name,
-                    phone: userData.phone,
-                    email: userData.email || '',
-                    avatar: userData.avatar || ''
-                }));
+                localStorage.setItem('user', JSON.stringify(user));
+                if (refreshParam) {
+                    localStorage.setItem(
+                        REFRESH_TOKEN_KEY,
+                        decodeURIComponent(refreshParam),
+                    );
+                }
 
-                // ✅ trigger کردن storage event برای AuthContext
                 window.dispatchEvent(new StorageEvent('storage', {
                     key: 'token',
                     newValue: token,
-                    storageArea: localStorage
+                    storageArea: localStorage,
                 }));
 
                 setStatus('success');
-                setTimeout(() => router.push('/'), 1000);
+                setTimeout(() => router.replace('/'), 1000);
 
             } catch (err) {
                 console.error('خطا در پردازش توکن:', err);
                 localStorage.removeItem('token');
                 localStorage.removeItem('user');
+                localStorage.removeItem(REFRESH_TOKEN_KEY);
                 setError(err instanceof Error ? err.message : 'خطا در پردازش اطلاعات ورود');
                 setStatus('error');
             }

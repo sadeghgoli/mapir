@@ -1,109 +1,69 @@
-// services/auth.service.ts
+// services/auth.service.ts — legacy wrapper; prefer AuthContext for UI.
 
-import { PAY_API_URL } from '@/app/utils/apiConfig';
+import {
+  AUTH_CALLBACK_URL,
+  SSO_API_URL,
+  SSO_WEB_URL,
+} from '@/app/utils/apiConfig';
+import { fetchSsoMe, mapSsoMeToUser, type MapAuthUser } from '@/app/utils/ssoAuth';
 
-export interface UserInfo {
-  id: string;
-  name: string;
-  phone: string;
-  email?: string;
-  avatar?: string;
-}
+export type UserInfo = MapAuthUser;
 
 export interface LoginInitiateResponse {
   loginUrl: string;
-  state: string;
-  stateExpiresIn: number;
 }
 
-export interface UserTokenResponse {
-  accessToken: string;
-  refreshToken: string;
-  expiresIn: number;
-  tokenType: string;
-  user: UserInfo;
-}
-
-const API_BASE_URL = PAY_API_URL;
+const TOKEN_KEY = 'token';
+const REFRESH_TOKEN_KEY = 'refreshToken';
 
 class AuthService {
-  private accessToken: string | null = null;
-
-  constructor() {
-    // بازیابی توکن از localStorage در شروع
-    if (typeof window !== 'undefined') {
-      this.accessToken = localStorage.getItem('accessToken');
-    }
+  /**
+   * Redirect URL for MVC SSO portal (no pay-api broker).
+   */
+  getPortalLoginUrl(): string {
+    const url = new URL(`${SSO_WEB_URL}/Account/Login`);
+    url.searchParams.set('returnUrl', AUTH_CALLBACK_URL);
+    return url.toString();
   }
 
-  /**
-   * شروع فرآیند لاگین - دریافت آدرس صفحه SSO
-   */
   async initiateLogin(): Promise<LoginInitiateResponse> {
-    const response = await fetch(`${API_BASE_URL}/api/Auth/login`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error('خطا در شروع فرآیند ورود');
-    }
-
-    return response.json();
+    return { loginUrl: this.getPortalLoginUrl() };
   }
 
   /**
-   * پردازش کالبک لاگین - بعد از بازگشت از SSO
+   * After portal redirect with ?token= on /auth/callback.
    */
-  async handleCallback(params: URLSearchParams): Promise<UserTokenResponse> {
+  async handleCallback(params: URLSearchParams): Promise<{ accessToken: string; user: UserInfo }> {
     const token = params.get('token');
-    const code = params.get('code');
-    const state = params.get('state');
-    const signature = params.get('signature');
-    const timestamp = params.get('timestamp');
-
-    // ساخت URL با پارامترهای دریافت شده
-    const url = new URL(`${API_BASE_URL}/api/Auth/callback`);
-    if (token) url.searchParams.append('token', token);
-    if (code) url.searchParams.append('code', code);
-    if (state) url.searchParams.append('state', state);
-    if (signature) url.searchParams.append('signature', signature);
-    if (timestamp) url.searchParams.append('timestamp', timestamp);
-
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include', // برای دریافت Refresh Token Cookie
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'خطا در احراز هویت');
+    if (!token) {
+      throw new Error('توکن ورود یافت نشد');
     }
 
-    const data: UserTokenResponse = await response.json();
+    const accessToken = decodeURIComponent(token);
+    const refreshToken = params.get('refreshToken');
+    const { user } = await fetchSsoMe(accessToken);
+    if (!user) {
+      throw new Error('توکن دریافتی معتبر نیست');
+    }
 
-    // ذخیره Access Token در localStorage
-    this.setAccessToken(data.accessToken);
+    this.setAccessToken(accessToken);
+    if (refreshToken) {
+      localStorage.setItem(REFRESH_TOKEN_KEY, decodeURIComponent(refreshToken));
+    }
+    localStorage.setItem('user', JSON.stringify(user));
 
-    return data;
+    return { accessToken, user };
   }
 
-  /**
-   * تمدید Access Token با Refresh Token
-   */
   async refreshToken(): Promise<string | null> {
+    const refresh = localStorage.getItem(REFRESH_TOKEN_KEY);
+    if (!refresh) return null;
+
     try {
-      const response = await fetch(`${API_BASE_URL}/api/Auth/refresh`, {
+      const response = await fetch(`${SSO_API_URL}/api/auth/refresh`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // Refresh Token در Cookie ارسال می‌شود
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken: refresh }),
       });
 
       if (!response.ok) {
@@ -111,8 +71,17 @@ class AuthService {
         return null;
       }
 
-      const data = await response.json();
+      const json = await response.json();
+      const data = json.data ?? json;
+      if (!data.accessToken) {
+        this.clearAccessToken();
+        return null;
+      }
+
       this.setAccessToken(data.accessToken);
+      if (data.refreshToken) {
+        localStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken);
+      }
       return data.accessToken;
     } catch (error) {
       console.error('Error refreshing token:', error);
@@ -121,55 +90,31 @@ class AuthService {
     }
   }
 
-  /**
-   * دریافت اطلاعات کاربر جاری
-   */
   async getCurrentUser(): Promise<UserInfo | null> {
     const token = this.getAccessToken();
     if (!token) return null;
 
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/Auth/me`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+    const { user } = await fetchSsoMe(token);
+    if (user) return user;
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          // تلاش برای تمدید توکن
-          const newToken = await this.refreshToken();
-          if (newToken) {
-            return this.getCurrentUser();
-          }
-        }
-        return null;
-      }
+    const newToken = await this.refreshToken();
+    if (!newToken) return null;
 
-      return response.json();
-    } catch (error) {
-      console.error('Error getting current user:', error);
-      return null;
-    }
+    const retry = await fetchSsoMe(newToken);
+    return retry.user;
   }
 
-  /**
-   * خروج از حساب کاربری
-   */
   async logout(): Promise<void> {
     const token = this.getAccessToken();
 
     if (token) {
       try {
-        await fetch(`${API_BASE_URL}/api/Auth/logout`, {
+        await fetch(`${SSO_API_URL}/api/auth/logout`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${token}`,
+            Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
-          credentials: 'include',
         });
       } catch (error) {
         console.error('Error during logout:', error);
@@ -177,16 +122,14 @@ class AuthService {
     }
 
     this.clearAccessToken();
+    localStorage.removeItem('user');
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
   }
 
-  /**
-   * بررسی لاگین بودن کاربر
-   */
   isAuthenticated(): boolean {
     const token = this.getAccessToken();
     if (!token) return false;
 
-    // بررسی انقضای توکن
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
       const exp = payload.exp * 1000;
@@ -196,30 +139,21 @@ class AuthService {
     }
   }
 
-  /**
-   * دریافت Access Token جاری
-   */
   getAccessToken(): string | null {
     if (typeof window === 'undefined') return null;
-    return localStorage.getItem('accessToken');
+    return localStorage.getItem(TOKEN_KEY) || localStorage.getItem('accessToken');
   }
 
-  /**
-   * تنظیم Access Token
-   */
   private setAccessToken(token: string): void {
-    this.accessToken = token;
     if (typeof window !== 'undefined') {
-      localStorage.setItem('accessToken', token);
+      localStorage.setItem(TOKEN_KEY, token);
+      localStorage.removeItem('accessToken');
     }
   }
 
-  /**
-   * پاک کردن Access Token
-   */
   private clearAccessToken(): void {
-    this.accessToken = null;
     if (typeof window !== 'undefined') {
+      localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem('accessToken');
     }
   }

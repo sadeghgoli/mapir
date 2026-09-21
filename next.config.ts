@@ -7,7 +7,15 @@ const nextConfig: NextConfig = {
         ignoreBuildErrors: true,
     },
     async rewrites() {
+        const ssoUpstream =
+            process.env.SSO_API_UPSTREAM ||
+            'https://apiweb-loginsso.sabzevar.ir';
+
         return [
+            {
+                source: '/sso-api/:path*',
+                destination: `${ssoUpstream.replace(/\/$/, '')}/:path*`,
+            },
             {
                 source: '/api/sabzevar/:path*',
                 destination: 'https://layers.sabzevar.ir/:path*',

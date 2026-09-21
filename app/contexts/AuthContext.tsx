@@ -3,7 +3,12 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { PAY_API_URL } from '@/app/utils/apiConfig';
+import {
+    AUTH_CALLBACK_URL,
+    SSO_API_URL,
+    SSO_WEB_URL,
+} from '@/app/utils/apiConfig';
+import { fetchSsoMe, parseClaimsFromToken } from '@/app/utils/ssoAuth';
 
 interface User {
     id: string;
@@ -28,7 +33,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const API_BASE_URL = PAY_API_URL;
+const REFRESH_TOKEN_KEY = 'refreshToken';
 
 const getLocalStorage = (key: string): string | null => {
     if (typeof window === 'undefined') return null;
@@ -62,28 +67,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return roles.includes(role);
     }, [roles]);
 
-    const parseClaimsFromToken = useCallback((token: string) => {
-        try {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            const perms: string[] = [];
-            const rls: string[] = [];
-            for (const key in payload) {
-                const val = payload[key];
-                if (key === 'permission') {
-                    if (Array.isArray(val)) perms.push(...val);
-                    else perms.push(val);
-                }
-                if (key === 'role') {
-                    if (Array.isArray(val)) rls.push(...val);
-                    else rls.push(val);
-                }
-            }
-            return { permissions: perms, roles: rls };
-        } catch {
-            return { permissions: [] as string[], roles: [] as string[] };
-        }
-    }, []);
-
     const saveAuthData = useCallback((token: string, userData: User, perms?: string[], rls?: string[]) => {
         setAccessToken(token);
         setUser(userData);
@@ -107,49 +90,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         removeLocalStorage('user');
         removeLocalStorage('permissions');
         removeLocalStorage('roles');
+        removeLocalStorage(REFRESH_TOKEN_KEY);
     }, []);
 
     const fetchUserInfo = useCallback(async (token: string): Promise<{ user: User | null; permissions: string[]; roles: string[] }> => {
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
-            });
-
-            if (response.ok) {
-                const result = await response.json();
-                const { permissions: p, roles: r } = parseClaimsFromToken(token);
-                return {
-                    user: result.data || result,
-                    permissions: result.permissions ?? p,
-                    roles: r,
-                };
-            }
-            return { user: null, permissions: [], roles: [] };
-        } catch (error) {
-            console.error('Error fetching user info:', error);
-            return { user: null, permissions: [], roles: [] };
+        const { user, permissions, roles } = await fetchSsoMe(token);
+        if (user) {
+            const claims = parseClaimsFromToken(token);
+            return {
+                user,
+                permissions: permissions.length ? permissions : claims.permissions,
+                roles: roles.length ? roles : claims.roles,
+            };
         }
+        return { user: null, permissions: [], roles: [] };
     }, []);
 
     const login = useCallback(async () => {
         try {
             setIsLoading(true);
-            const response = await fetch(`${API_BASE_URL}/api/auth/login`);
-            const data = await response.json();
-
-            if (data.loginUrl) {
-                const state = Math.random().toString(36).substring(2);
-                sessionStorage.setItem('loginState', state);
-
-                // ✅ prompt=login از سمت فرانت هم اضافه میشه (دو لایه اطمینان)
-                const loginUrl = new URL(data.loginUrl);
-                loginUrl.searchParams.set('prompt', 'login');
-
-                window.location.href = loginUrl.toString();
-            }
+            const loginUrl = new URL(`${SSO_WEB_URL}/Account/Login`);
+            loginUrl.searchParams.set('returnUrl', AUTH_CALLBACK_URL);
+            window.location.href = loginUrl.toString();
         } catch (error) {
             console.error('Login error:', error);
             alert('خطا در اتصال به سرور');
@@ -163,7 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const token = getLocalStorage('token');
 
             if (token) {
-                await fetch(`${API_BASE_URL}/api/auth/logout`, {
+                await fetch(`${SSO_API_URL}/api/auth/logout`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${token}`,

@@ -1,20 +1,14 @@
-// app/hooks/useSSO.ts
+// app/hooks/useSSO.ts — prefer AuthContext; kept for legacy imports.
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { PAY_API_URL } from '@/app/utils/apiConfig';
+import { authService } from '@/app/services/auth.service';
 
 interface SSOUser {
     id: string;
     name: string;
     phone: string;
-}
-
-interface SSOResult {
-    success: boolean;
-    token?: string;
-    error?: string;
-    user?: SSOUser;
 }
 
 interface UseSSOReturn {
@@ -27,9 +21,7 @@ interface UseSSOReturn {
     error: string | null;
 }
 
-const SSO_LOGIN_URL = `${PAY_API_URL}/api/auth/login`;
-const TOKEN_KEY = 'sso_access_token';
-const USER_KEY = 'sso_user';
+const TOKEN_KEY = 'token';
 
 export function useSSO(): UseSSOReturn {
     const [isLoading, setIsLoading] = useState(false);
@@ -38,100 +30,51 @@ export function useSSO(): UseSSOReturn {
     const [error, setError] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
 
-    // فقط در سمت کلاینت اطلاعات را از localStorage بخوان
     useEffect(() => {
         setMounted(true);
         const storedToken = localStorage.getItem(TOKEN_KEY);
-        const storedUser = localStorage.getItem(USER_KEY);
+        const storedUser = localStorage.getItem('user');
 
         setToken(storedToken);
         setUser(storedUser ? JSON.parse(storedUser) : null);
     }, []);
 
-    const handleMessage = useCallback((event: MessageEvent) => {
-        // فقط پیام‌های از همین دامنه یا دامنه SSO رو قبول کن
-        const result = event.data as SSOResult;
-        if (!result || typeof result.success === 'undefined') return;
-
-        setIsLoading(false);
-
-        if (result.success && result.token) {
-            setToken(result.token);
-            setUser(result.user ?? null);
-            setError(null);
-            localStorage.setItem(TOKEN_KEY, result.token);
-            if (result.user) {
-                localStorage.setItem(USER_KEY, JSON.stringify(result.user));
-            }
-        } else {
-            setError(result.error ?? 'خطا در ورود');
-        }
-    }, []);
-
-    useEffect(() => {
-        if (!mounted) return;
-
-        window.addEventListener('message', handleMessage);
-        return () => window.removeEventListener('message', handleMessage);
-    }, [handleMessage, mounted]);
-
     const login = useCallback(async () => {
         setIsLoading(true);
         setError(null);
-
         try {
-            // دریافت URL لاگین از API
-            const res = await fetch(SSO_LOGIN_URL);
-            const data = await res.json();
-
-            // باز کردن popup
-            const popup = window.open(
-                data.loginUrl,
-                'SSO_Login',
-                'width=500,height=600,top=100,left=100,resizable=yes,scrollbars=yes'
-            );
-
-            if (!popup) {
-                setError('مرورگر popup را مسدود کرده است. لطفاً اجازه دهید.');
-                setIsLoading(false);
-                return;
-            }
-
-            // اگه popup بسته شد ولی پیامی نرسید
-            const checkClosed = setInterval(() => {
-                if (popup.closed) {
-                    clearInterval(checkClosed);
-                    setIsLoading(false);
-                }
-            }, 500);
-
-        } catch (err) {
-            setError('خطا در اتصال به سرور');
+            window.location.href = authService.getPortalLoginUrl();
+        } catch {
+            setError('خطا در شروع ورود');
             setIsLoading(false);
         }
     }, []);
 
-    const logout = useCallback(() => {
+    const logout = useCallback(async () => {
+        await authService.logout();
         setToken(null);
         setUser(null);
-        localStorage.removeItem(TOKEN_KEY);
-        localStorage.removeItem(USER_KEY);
+    }, []);
 
-        // revoke از سرور
-        fetch(`${PAY_API_URL}/api/auth/logout`, {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${token}` },
-            credentials: 'include'
-        }).catch(() => {});
-    }, [token]);
+    if (!mounted) {
+        return {
+            login: () => {},
+            logout: () => {},
+            isLoading: true,
+            isLoggedIn: false,
+            user: null,
+            token: null,
+            error: null,
+        };
+    }
 
     return {
         login,
         logout,
         isLoading,
-        isLoggedIn: !!token,
+        isLoggedIn: !!token && !!user,
         user,
         token,
-        error
+        error,
     };
 }
