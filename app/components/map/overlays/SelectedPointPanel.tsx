@@ -10,6 +10,7 @@ import {
     fetchMapPointById,
     findMapPointById,
     mapPointShareUrl,
+    withMapShortPath,
     type MapPoint,
 } from '@/app/services/mapPoint.service';
 
@@ -145,7 +146,7 @@ export default function SelectedPointPanel() {
         };
     }, [pointId]);
 
-    const qrUrl = point?.shortVisitLink || point?.visitLink || null;
+    const qrUrl = withMapShortPath(point?.shortVisitLink) || point?.visitLink || null;
     const shareUrl = (point && mapPointShareUrl(point))
         || (pointId ? buildPointShareUrl(pointId, KOCHE_LAYER_ID) : '');
 

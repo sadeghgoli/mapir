@@ -46,6 +46,26 @@ let koocheCategoryIdPromise: Promise<string> | null = null;
 let koochePointsCache: MapPoint[] | null = null;
 let koochePointsInflight: Promise<MapPoint[]> | null = null;
 
+export function withMapShortPath(url: string | null | undefined): string | null {
+    if (!url) return null;
+    try {
+        const parsed = new URL(url);
+        if (parsed.pathname === '/b' || parsed.pathname.startsWith('/b/')) return url;
+        const rest = parsed.pathname.startsWith('/') ? parsed.pathname : `/${parsed.pathname}`;
+        parsed.pathname = `/b${rest}`;
+        return parsed.toString();
+    } catch {
+        return url.replace(/^(https?:\/\/[^/]+)\/(?!b(?:\/|$))/i, '$1/b/');
+    }
+}
+
+function normalizeMapPoint(point: MapPoint): MapPoint {
+    return {
+        ...point,
+        shortVisitLink: withMapShortPath(point.shortVisitLink),
+    };
+}
+
 export function findMapPointById(points: MapPoint[], id: string): MapPoint | undefined {
     const lower = id.toLowerCase();
     return points.find(p => p.id.toLowerCase() === lower);
@@ -83,7 +103,7 @@ export async function fetchApprovedMapPoints(categoryId?: string): Promise<MapPo
         const json: ApiListResponse<MapPoint> = await res.json();
         if (!json.success) throw new Error('API returned success: false');
 
-        const batch = json.data ?? [];
+        const batch = (json.data ?? []).map(normalizeMapPoint);
         all.push(...batch);
 
         const total = json.totalCount ?? all.length;
@@ -124,9 +144,9 @@ export async function fetchMapPointById(id: string): Promise<MapPoint> {
     if (!res.ok) throw new Error(`Failed to fetch map point: ${res.status}`);
     const json: ApiItemResponse<MapPoint> = await res.json();
     if (!json.success || !json.data) throw new Error('API returned success: false');
-    return json.data;
+    return normalizeMapPoint(json.data);
 }
 
 export function mapPointShareUrl(point: Pick<MapPoint, 'shortVisitLink' | 'visitLink'>): string | null {
-    return point.shortVisitLink || point.visitLink || null;
+    return withMapShortPath(point.shortVisitLink) || point.visitLink || null;
 }
