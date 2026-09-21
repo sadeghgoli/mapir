@@ -1,0 +1,9 @@
+برای ری‌استارت:
+
+sudo systemctl restart mapir.service
+
+بعد وضعیت:
+
+sudo systemctl status mapir.service --no-pager
+
+اگر فقط می‌خوای ببینی فعال شده:

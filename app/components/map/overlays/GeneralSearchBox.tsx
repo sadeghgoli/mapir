@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLayer } from '@/app/contexts/LayerContext';
 import { mapController } from '@/app/utils/mapController';
 import { addPoint, removeAllPoints, setIdParam } from '@/app/utils/urlManager';
-import { alleyways, getAlleywayPoint } from '@/app/constants/alleyways';
+import { fetchKoocheMapPoints, type MapPoint } from '@/app/services/mapPoint.service';
 
 interface MokebItem {
     id: string;
@@ -21,6 +21,8 @@ export default function GeneralSearchBox() {
     const [isOpen, setIsOpen] = useState(false);
     const [mokebData, setMokebData] = useState<MokebItem[]>([]);
     const [mokebLoaded, setMokebLoaded] = useState(false);
+    const [koocheData, setKoocheData] = useState<MapPoint[]>([]);
+    const [koocheLoaded, setKoocheLoaded] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -41,6 +43,15 @@ export default function GeneralSearchBox() {
                 .finally(() => setMokebLoaded(true));
         }
     }, [isMokebActive, mokebLoaded]);
+
+    useEffect(() => {
+        if (isKoocheActive && !koocheLoaded) {
+            fetchKoocheMapPoints()
+                .then(setKoocheData)
+                .catch(console.error)
+                .finally(() => setKoocheLoaded(true));
+        }
+    }, [isKoocheActive, koocheLoaded]);
 
     useEffect(() => {
         const handler = (e: MouseEvent) => {
@@ -68,16 +79,18 @@ export default function GeneralSearchBox() {
             })));
             setIsOpen(filtered.length > 0);
         } else if (isKoocheActive) {
-            const filtered = alleyways.filter(a =>
-                a.name.toLowerCase().includes(lower)
+            const filtered = koocheData.filter(a =>
+                a.title.toLowerCase().includes(lower)
             );
-            setResults(filtered.map(a => {
-                const [lat, lng] = getAlleywayPoint(a);
-                return { label: a.name, lat, lng, id: a.id };
-            }));
+            setResults(filtered.map(a => ({
+                label: a.title,
+                lat: a.latitude,
+                lng: a.longitude,
+                id: a.id,
+            })));
             setIsOpen(filtered.length > 0);
         }
-    }, [isMokebActive, isKoocheActive, mokebData]);
+    }, [isMokebActive, isKoocheActive, mokebData, koocheData]);
 
     const handleSelect = useCallback((lat: number, lng: number, layer?: string, id?: string) => {
         mapController.flyTo?.(lat, lng, 18);

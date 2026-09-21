@@ -1,32 +1,50 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { maplibregl } from '@/app/libs/maplibre';
 import { useMapLibre, useStyleLoaded } from '@/app/contexts/MapLibreMapContext';
-import { alleyways, findAlleywayById } from '@/app/constants/alleyways';
 import { getIdParam, setIdParam } from '@/app/utils/urlManager';
+import { fetchKoocheMapPoints, type MapPoint } from '@/app/services/mapPoint.service';
 
 const SOURCE_ID = 'kooche-points';
 const CIRCLE_LAYER = 'kooche-circles';
 const CIRCLE_HIT_LAYER = 'kooche-circles-hit';
+const GLOW_LAYER = 'kooche-glow';
 const LABEL_LAYER = 'kooche-labels';
 const SELECTED_LAYER = 'kooche-selected';
 
 const COLOR = '#0F766E';
 const COLOR_SELECTED = '#0D9488';
 const STROKE = '#FFFFFF';
+const SHORT_LINK_POLL_MS = 2000;
+const SHORT_LINK_POLL_ATTEMPTS = 5;
 
-function flyToAlley(map: maplibregl.Map, id: string) {
-    const alley = findAlleywayById(id);
-    if (!alley) return;
-    map.flyTo({ center: [alley.lng, alley.lat], zoom: 19, duration: 900 });
+function toFeatures(points: MapPoint[]) {
+    return points.map((point, i) => ({
+        type: 'Feature' as const,
+        properties: {
+            id: point.id,
+            name: point.title,
+            color: point.categoryColor || COLOR,
+            number: i + 1,
+        },
+        geometry: {
+            type: 'Point' as const,
+            coordinates: [point.longitude, point.latitude],
+        },
+    }));
+}
+
+function findPoint(points: MapPoint[], id: string | null): MapPoint | undefined {
+    if (!id) return undefined;
+    const lower = id.toLowerCase();
+    return points.find(p => p.id.toLowerCase() === lower);
 }
 
 function setSelectedFilter(map: maplibregl.Map, selectedId: string | null) {
     if (!map.getLayer(SELECTED_LAYER)) return;
-    const alley = selectedId ? findAlleywayById(selectedId) : undefined;
-    map.setFilter(SELECTED_LAYER, alley
-        ? ['==', ['get', 'id'], alley.id]
+    map.setFilter(SELECTED_LAYER, selectedId
+        ? ['==', ['get', 'id'], selectedId]
         : ['==', ['get', 'id'], '']
     );
 }
@@ -34,31 +52,62 @@ function setSelectedFilter(map: maplibregl.Map, selectedId: string | null) {
 export default function MapLibreKoocheLayer() {
     const map = useMapLibre();
     const styleLoaded = useStyleLoaded();
+    const [points, setPoints] = useState<MapPoint[]>([]);
     const selectedRef = useRef<string | null>(null);
     const initDone = useRef(false);
+    const pointsRef = useRef<MapPoint[]>([]);
+    pointsRef.current = points;
+
+    useEffect(() => {
+        let cancelled = false;
+        let pollTimer: ReturnType<typeof setTimeout> | undefined;
+
+        async function load() {
+            try {
+                const data = await fetchKoocheMapPoints();
+                if (cancelled) return;
+                pointsRef.current = data;
+                setPoints(data);
+
+                let attempts = 0;
+                const poll = async () => {
+                    if (cancelled || attempts >= SHORT_LINK_POLL_ATTEMPTS) return;
+                    if (!pointsRef.current.some(p => !p.shortVisitLink)) return;
+                    attempts += 1;
+                    try {
+                        const refreshed = await fetchKoocheMapPoints();
+                        if (cancelled) return;
+                        pointsRef.current = refreshed;
+                        setPoints(refreshed);
+                    } catch (err) {
+                        console.error(err);
+                    }
+                    pollTimer = setTimeout(poll, SHORT_LINK_POLL_MS);
+                };
+
+                if (data.some(p => !p.shortVisitLink)) {
+                    pollTimer = setTimeout(poll, SHORT_LINK_POLL_MS);
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        load();
+        return () => {
+            cancelled = true;
+            if (pollTimer) clearTimeout(pollTimer);
+        };
+    }, []);
 
     useEffect(() => {
         if (!map || !styleLoaded) return;
-
-        const features = alleyways.map((alley, i) => ({
-            type: 'Feature' as const,
-            properties: {
-                id: alley.id,
-                name: alley.name,
-                number: i + 1,
-                label: String(i + 1),
-            },
-            geometry: {
-                type: 'Point' as const,
-                coordinates: [alley.lng, alley.lat],
-            },
-        }));
 
         map.addSource(SOURCE_ID, {
             type: 'geojson',
             data: {
                 type: 'FeatureCollection',
-                features,
+                features: toFeatures(pointsRef.current),
             },
         });
 
@@ -73,12 +122,12 @@ export default function MapLibreKoocheLayer() {
         });
 
         map.addLayer({
-            id: 'kooche-glow',
+            id: GLOW_LAYER,
             type: 'circle',
             source: SOURCE_ID,
             paint: {
                 'circle-radius': 14,
-                'circle-color': COLOR,
+                'circle-color': ['coalesce', ['get', 'color'], COLOR],
                 'circle-opacity': 0.18,
             },
         });
@@ -89,7 +138,7 @@ export default function MapLibreKoocheLayer() {
             source: SOURCE_ID,
             paint: {
                 'circle-radius': 8,
-                'circle-color': COLOR,
+                'circle-color': ['coalesce', ['get', 'color'], COLOR],
                 'circle-stroke-width': 2.5,
                 'circle-stroke-color': STROKE,
                 'circle-opacity': 0.95,
@@ -115,7 +164,7 @@ export default function MapLibreKoocheLayer() {
             type: 'symbol',
             source: SOURCE_ID,
             layout: {
-                'text-field': ['concat', 'جوانمرد ', ['get', 'label']],
+                'text-field': ['get', 'name'],
                 'text-size': 11,
                 'text-offset': [0, -1.6],
                 'text-anchor': 'bottom',
@@ -137,7 +186,10 @@ export default function MapLibreKoocheLayer() {
             selectedRef.current = id;
             setIdParam(id);
             setSelectedFilter(map, id);
-            if (fly) flyToAlley(map, id);
+            if (!fly) return;
+            const alley = findPoint(pointsRef.current, id);
+            if (!alley) return;
+            map.flyTo({ center: [alley.longitude, alley.latitude], zoom: 19, duration: 900 });
         };
 
         const onClick = (e: LayerClickEvent) => {
@@ -148,35 +200,30 @@ export default function MapLibreKoocheLayer() {
         };
         const onEnter = () => { map.getCanvas().style.cursor = 'pointer'; };
         const onLeave = () => { map.getCanvas().style.cursor = ''; };
+        const syncSelectedFromUrl = () => {
+            const id = getIdParam();
+            selectedRef.current = id;
+            setSelectedFilter(map, id);
+        };
 
         map.on('click', CIRCLE_HIT_LAYER, onClick);
         map.on('mouseenter', CIRCLE_HIT_LAYER, onEnter);
         map.on('mouseleave', CIRCLE_HIT_LAYER, onLeave);
-
-        if (!initDone.current) {
-            const urlId = getIdParam();
-            const alley = urlId ? findAlleywayById(urlId) : undefined;
-            if (alley) {
-                initDone.current = true;
-                selectedRef.current = alley.id;
-                setSelectedFilter(map, alley.id);
-                // Always center from id — camera params are not kept in share URLs
-                map.jumpTo({ center: [alley.lng, alley.lat], zoom: 19 });
-            }
-        } else if (selectedRef.current) {
-            setSelectedFilter(map, selectedRef.current);
-        }
+        window.addEventListener('popstate', syncSelectedFromUrl);
+        window.addEventListener('mapurlchange', syncSelectedFromUrl);
 
         return () => {
             map.off('click', CIRCLE_HIT_LAYER, onClick);
             map.off('mouseenter', CIRCLE_HIT_LAYER, onEnter);
             map.off('mouseleave', CIRCLE_HIT_LAYER, onLeave);
+            window.removeEventListener('popstate', syncSelectedFromUrl);
+            window.removeEventListener('mapurlchange', syncSelectedFromUrl);
 
             [
                 LABEL_LAYER,
                 SELECTED_LAYER,
                 CIRCLE_LAYER,
-                'kooche-glow',
+                GLOW_LAYER,
                 CIRCLE_HIT_LAYER,
             ].forEach(id => {
                 if (map.getLayer(id)) map.removeLayer(id);
@@ -184,6 +231,30 @@ export default function MapLibreKoocheLayer() {
             if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
         };
     }, [map, styleLoaded]);
+
+    useEffect(() => {
+        if (!map || !styleLoaded) return;
+        const source = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
+        if (!source) return;
+
+        source.setData({
+            type: 'FeatureCollection',
+            features: toFeatures(points),
+        });
+
+        if (!initDone.current) {
+            const urlId = getIdParam();
+            const alley = findPoint(points, urlId);
+            if (alley) {
+                initDone.current = true;
+                selectedRef.current = alley.id;
+                setSelectedFilter(map, alley.id);
+                map.jumpTo({ center: [alley.longitude, alley.latitude], zoom: 19 });
+            }
+        } else if (selectedRef.current) {
+            setSelectedFilter(map, selectedRef.current);
+        }
+    }, [map, styleLoaded, points]);
 
     return null;
 }
